@@ -19,7 +19,6 @@ const MONTH_NAMES = [
   "December"
 ];
 
-const MONTHS_PER_ROW = 3;
 const DAY_NAMES = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const WEEKS_PER_MONTH = 6;
 const TODAY = new Date();
@@ -68,6 +67,36 @@ let isEditingYear = false;
 let selectionsCollapsed = true;
 let availableColorIndices = SELECTION_COLORS.map((_, index) => index).slice(1);
 let selections = [createSelection(0)];
+let layoutConfig = getLayoutConfig();
+
+function getLayoutConfig() {
+  const width = window.innerWidth;
+
+  if (width < 700) {
+    return {
+      monthsPerRow: 1,
+      stackedHeader: true,
+      calendarPadding: 8,
+      monthPadding: 8
+    };
+  }
+
+  if (width < 1100) {
+    return {
+      monthsPerRow: 2,
+      stackedHeader: true,
+      calendarPadding: 10,
+      monthPadding: 10
+    };
+  }
+
+  return {
+    monthsPerRow: 3,
+    stackedHeader: false,
+    calendarPadding: 12,
+    monthPadding: 12
+  };
+}
 
 function takeColorIndex(preferredIndex) {
   if (preferredIndex !== undefined) {
@@ -266,12 +295,12 @@ function updateSelection(selection, isoDate) {
   return "single";
 }
 
-function buildSelectionRows() {
+function buildSelectionRows(monthsPerRow) {
   const rows = [];
   const toggleLabel = selectionsCollapsed ? "▸" : "▾";
   const headerRow = `
     <tr>
-      <td colspan="${MONTHS_PER_ROW}" style="padding-top: 6px;">
+      <td colspan="${monthsPerRow}" style="padding-top: 6px;">
         <a href="#" data-selection-toggle="true">${toggleLabel} Selections</a>
       </td>
     </tr>
@@ -333,7 +362,7 @@ function buildSelectionRows() {
 
     rows.push(`
       <tr>
-        <td colspan="${MONTHS_PER_ROW}" style="padding-top: 6px;">
+        <td colspan="${monthsPerRow}" style="padding-top: 6px;">
           <div data-selection-id="${selection.id}" style="${rowStyle} cursor: pointer;">
             ${content}
           </div>
@@ -421,7 +450,10 @@ function buildMonthTable(year, monthIndex) {
 }
 
 function buildYearTable(year) {
-  const monthCells = MONTH_NAMES.map((_, monthIndex) => `<td valign="top">${buildMonthTable(year, monthIndex)}</td>`);
+  const { monthsPerRow, stackedHeader, calendarPadding, monthPadding } = layoutConfig;
+  const monthCells = MONTH_NAMES.map(
+    (_, monthIndex) => `<td valign="top" style="padding: ${monthPadding}px;">${buildMonthTable(year, monthIndex)}</td>`
+  );
   const monthRows = [];
   const dayOfYear = getDayOfYear(TODAY);
   const daysInYear = getDaysInYear(TODAY.getFullYear());
@@ -439,33 +471,62 @@ function buildYearTable(year) {
       `
     : `<a href="#" data-edit-year="true">${year}</a>`;
 
-  for (let i = 0; i < monthCells.length; i += MONTHS_PER_ROW) {
-    monthRows.push(`<tr>${monthCells.slice(i, i + MONTHS_PER_ROW).join("")}</tr>`);
+  for (let i = 0; i < monthCells.length; i += monthsPerRow) {
+    monthRows.push(`<tr>${monthCells.slice(i, i + monthsPerRow).join("")}</tr>`);
   }
 
+  const headerMarkup = stackedHeader
+    ? `
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <th align="left">
+              <button type="button" data-year-nav="prev" aria-label="Previous year">&lt;</button>
+              ${yearDisplay}
+              <button type="button" data-year-nav="next" aria-label="Next year">&gt;</button>
+            </th>
+          </tr>
+          <tr>
+            <th align="left" style="padding-top: 6px;">
+              <a href="#" data-jump-current-year="true">${metadataText}</a>
+            </th>
+          </tr>
+        </table>
+      `
+    : `
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <th align="left">
+              <button type="button" data-year-nav="prev" aria-label="Previous year">&lt;</button>
+              ${yearDisplay}
+              <button type="button" data-year-nav="next" aria-label="Next year">&gt;</button>
+            </th>
+            <th align="right">
+              <a href="#" data-jump-current-year="true">${metadataText}</a>
+            </th>
+          </tr>
+        </table>
+      `;
+
   return `
-    <table align="center" cellpadding="12" cellspacing="0" border="0" aria-label="2026 calendar">
+    <table
+      align="center"
+      cellpadding="${calendarPadding}"
+      cellspacing="0"
+      border="0"
+      width="100%"
+      aria-label="${year} calendar"
+      style="max-width: 100%;"
+    >
       <thead>
         <tr>
           <th
-            colspan="${MONTHS_PER_ROW}"
+            colspan="${monthsPerRow}"
             style="border-bottom: 1px solid #000; padding-bottom: 8px;"
           >
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <th align="left">
-                  <button type="button" data-year-nav="prev" aria-label="Previous year">&lt;</button>
-                  ${yearDisplay}
-                  <button type="button" data-year-nav="next" aria-label="Next year">&gt;</button>
-                </th>
-                <th align="right">
-                  <a href="#" data-jump-current-year="true">${metadataText}</a>
-                </th>
-              </tr>
-            </table>
+            ${headerMarkup}
           </th>
         </tr>
-        ${buildSelectionRows()}
+        ${buildSelectionRows(monthsPerRow)}
       </thead>
       <tbody>${monthRows.join("")}</tbody>
     </table>
@@ -770,3 +831,19 @@ app.addEventListener("mouseout", (event) => {
 });
 
 render();
+
+window.addEventListener("resize", () => {
+  const nextLayout = getLayoutConfig();
+
+  if (
+    nextLayout.monthsPerRow === layoutConfig.monthsPerRow &&
+    nextLayout.stackedHeader === layoutConfig.stackedHeader &&
+    nextLayout.calendarPadding === layoutConfig.calendarPadding &&
+    nextLayout.monthPadding === layoutConfig.monthPadding
+  ) {
+    return;
+  }
+
+  layoutConfig = nextLayout;
+  render();
+});
