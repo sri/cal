@@ -64,7 +64,8 @@ let activeSelectionId = 0;
 let displayYear = 2026;
 let nextSelectionNumber = 2;
 let editingSelectionId = null;
-let selectionsCollapsed = false;
+let isEditingYear = false;
+let selectionsCollapsed = true;
 let availableColorIndices = SELECTION_COLORS.map((_, index) => index).slice(1);
 let selections = [createSelection(0)];
 
@@ -426,6 +427,17 @@ function buildYearTable(year) {
   const daysInYear = getDaysInYear(TODAY.getFullYear());
   const yearProgress = Math.round((dayOfYear / daysInYear) * 100);
   const metadataText = `${FULL_DATE_FORMATTER.format(TODAY)} · Day ${dayOfYear}/${daysInYear} (${yearProgress}%)`;
+  const yearDisplay = isEditingYear
+    ? `
+        <input
+          type="text"
+          inputmode="numeric"
+          data-year-editor="true"
+          value="${year}"
+          aria-label="Edit year"
+        />
+      `
+    : `<a href="#" data-edit-year="true">${year}</a>`;
 
   for (let i = 0; i < monthCells.length; i += MONTHS_PER_ROW) {
     monthRows.push(`<tr>${monthCells.slice(i, i + MONTHS_PER_ROW).join("")}</tr>`);
@@ -443,7 +455,7 @@ function buildYearTable(year) {
               <tr>
                 <th align="left">
                   <button type="button" data-year-nav="prev" aria-label="Previous year">&lt;</button>
-                  ${year}
+                  ${yearDisplay}
                   <button type="button" data-year-nav="next" aria-label="Next year">&gt;</button>
                 </th>
                 <th align="right">
@@ -462,6 +474,16 @@ function buildYearTable(year) {
 
 function render() {
   app.innerHTML = buildYearTable(displayYear);
+
+  if (isEditingYear) {
+    const yearInput = app.querySelector("[data-year-editor='true']");
+
+    if (yearInput instanceof HTMLInputElement) {
+      yearInput.focus();
+      yearInput.select();
+      return;
+    }
+  }
 
   if (editingSelectionId !== null) {
     const input = app.querySelector(`[data-selection-editor="${editingSelectionId}"]`);
@@ -502,18 +524,34 @@ app.addEventListener("click", (event) => {
 
   const yearNavTarget = target.closest("[data-year-nav]");
   const direction = yearNavTarget instanceof HTMLElement ? yearNavTarget.dataset.yearNav : undefined;
+  const yearEditTarget = target.closest("[data-edit-year]");
+  const yearEditorTarget = target.closest("[data-year-editor]");
   const selectionToggleTarget = target.closest("[data-selection-toggle]");
   const currentYearTarget = target.closest("[data-jump-current-year]");
 
   if (direction === "prev") {
     displayYear -= 1;
+    isEditingYear = false;
     render();
     return;
   }
 
   if (direction === "next") {
     displayYear += 1;
+    isEditingYear = false;
     render();
+    return;
+  }
+
+  if (yearEditTarget instanceof HTMLAnchorElement) {
+    event.preventDefault();
+    isEditingYear = true;
+    editingSelectionId = null;
+    render();
+    return;
+  }
+
+  if (yearEditorTarget instanceof HTMLInputElement) {
     return;
   }
 
@@ -521,6 +559,7 @@ app.addEventListener("click", (event) => {
     event.preventDefault();
     selectionsCollapsed = !selectionsCollapsed;
     editingSelectionId = null;
+    isEditingYear = false;
     render();
     return;
   }
@@ -529,6 +568,7 @@ app.addEventListener("click", (event) => {
     event.preventDefault();
     displayYear = CURRENT_YEAR;
     editingSelectionId = null;
+    isEditingYear = false;
     render();
     return;
   }
@@ -565,6 +605,7 @@ app.addEventListener("click", (event) => {
 
       activeSelectionId = nextIndex;
       editingSelectionId = null;
+      isEditingYear = false;
       render();
       return;
     }
@@ -572,6 +613,7 @@ app.addEventListener("click", (event) => {
     if (selectionAction === "edit") {
       activeSelectionId = selection.id;
       editingSelectionId = null;
+      isEditingYear = false;
 
       if (selection.start) {
         displayYear = parseIsoDate(selection.start).getFullYear();
@@ -585,6 +627,7 @@ app.addEventListener("click", (event) => {
       releaseColorIndex(selection.colorIndex);
       selections.splice(selection.id, 1);
       editingSelectionId = null;
+      isEditingYear = false;
       normalizeSelections();
       render();
       return;
@@ -594,6 +637,7 @@ app.addEventListener("click", (event) => {
   if (selectedSlotId !== undefined) {
     activeSelectionId = Number(selectedSlotId);
     editingSelectionId = activeSelectionId;
+    isEditingYear = false;
 
     if (selections[activeSelectionId] && selections[activeSelectionId].start) {
       displayYear = parseIsoDate(selections[activeSelectionId].start).getFullYear();
@@ -607,6 +651,10 @@ app.addEventListener("click", (event) => {
   const isoDate = dateTarget instanceof HTMLElement ? dateTarget.dataset.date : undefined;
 
   if (isoDate) {
+    if (selectionsCollapsed) {
+      selectionsCollapsed = false;
+    }
+
     const selection = selections[activeSelectionId];
     const result = updateSelection(selection, isoDate);
 
@@ -627,12 +675,37 @@ app.addEventListener("click", (event) => {
       editingSelectionId = null;
     }
 
+    isEditingYear = false;
+
     render();
   }
 });
 
 app.addEventListener("keydown", (event) => {
   const target = event.target;
+
+  if (target instanceof HTMLInputElement && target.dataset.yearEditor === "true") {
+    if (event.key === "Escape") {
+      isEditingYear = false;
+      render();
+      return;
+    }
+
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    const nextYear = Number.parseInt(target.value.trim(), 10);
+
+    if (!Number.isInteger(nextYear)) {
+      return;
+    }
+
+    displayYear = nextYear;
+    isEditingYear = false;
+    render();
+    return;
+  }
 
   if (!(target instanceof HTMLInputElement) || target.dataset.selectionEditor === undefined) {
     return;
