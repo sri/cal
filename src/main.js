@@ -66,9 +66,11 @@ let activeSelectionId = 0;
 let displayYear = 2026;
 let nextSelectionNumber = 2;
 let editingSelectionId = null;
+let editingNameSelectionId = null;
 let isEditingYear = false;
 let selectionsCollapsed = true;
 let shouldFocusSelectionEditor = false;
+let shouldFocusSelectionNameEditor = false;
 let availableColorIndices = SELECTION_COLORS.map((_, index) => index).slice(1);
 let selections = [createSelection(0)];
 
@@ -124,6 +126,14 @@ function releaseColorIndex(colorIndex) {
   }
 }
 
+function escapeHtml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 function createSelection(id, labelNumber = id + 1, colorIndex = takeColorIndex(id === 0 ? 0 : undefined)) {
   const palette = SELECTION_COLORS[colorIndex];
 
@@ -134,7 +144,8 @@ function createSelection(id, labelNumber = id + 1, colorIndex = takeColorIndex(i
     border: palette.border,
     colorIndex,
     start: null,
-    end: null
+    end: null,
+    name: ""
   };
 }
 
@@ -292,6 +303,68 @@ function updateSelection(selection, isoDate) {
   return "single";
 }
 
+function buildSelectionNameControl(selection) {
+  if (!selection.start) {
+    return "";
+  }
+
+  if (selection.id === editingNameSelectionId) {
+    return `
+      <input
+        type="text"
+        data-selection-name="${selection.id}"
+        value="${escapeHtml(selection.name || "")}"
+        placeholder="name"
+        aria-label="Name ${selection.label}"
+        style="width: 100%;"
+      />
+    `;
+  }
+
+  const nameText = selection.name.trim() || "(no name)";
+
+  return `
+    <a href="#" data-selection-name-link="${selection.id}" aria-label="Name ${selection.label}">
+      ${escapeHtml(nameText)}
+    </a>
+  `;
+}
+
+function commitSelectionEditor(selectionId, value) {
+  const selection = selections[selectionId];
+
+  editingSelectionId = null;
+  shouldFocusSelectionEditor = false;
+
+  if (!selection) {
+    return false;
+  }
+
+  const parsedSelection = parseSelectionInput(value);
+
+  if (!parsedSelection) {
+    return false;
+  }
+
+  selection.start = parsedSelection.start;
+  selection.end = parsedSelection.end;
+  displayYear = parseIsoDate(selection.start).getFullYear();
+  return true;
+}
+
+function commitSelectionName(selectionId, value) {
+  const selection = selections[selectionId];
+
+  editingNameSelectionId = null;
+  shouldFocusSelectionNameEditor = false;
+
+  if (!selection) {
+    return;
+  }
+
+  selection.name = value.trim();
+}
+
 function buildSelectionPanel(monthsPerRow) {
   const rows = [];
   const toggleLabel = selectionsCollapsed ? "▸" : "▾";
@@ -323,6 +396,9 @@ function buildSelectionPanel(monthsPerRow) {
     ].join(" ");
     const actions = selection.start
       ? `
+          <td style="padding-right: 8px;" width="240">
+            ${buildSelectionNameControl(selection)}
+          </td>
           <td align="right">
             <button type="button" data-selection-action="${primaryAction}" data-selection-id="${selection.id}" aria-label="${primaryAction === "edit" ? `Edit ${selection.label}` : `Done with ${selection.label}`}">${primaryIcon}</button>
             <button type="button" data-selection-action="delete" data-selection-id="${selection.id}" aria-label="Delete ${selection.label}">✕</button>
@@ -408,6 +484,9 @@ function buildSelectionRows(monthsPerRow) {
     ].join(" ");
     const actions = selection.start
       ? `
+          <td style="padding-right: 8px;" width="240">
+            ${buildSelectionNameControl(selection)}
+          </td>
           <td align="right">
             <button type="button" data-selection-action="${primaryAction}" data-selection-id="${selection.id}" aria-label="${primaryAction === "edit" ? `Edit ${selection.label}` : `Done with ${selection.label}`}">${primaryIcon}</button>
             <button type="button" data-selection-action="delete" data-selection-id="${selection.id}" aria-label="Delete ${selection.label}">✕</button>
@@ -690,6 +769,16 @@ function render() {
     if (input instanceof HTMLInputElement && shouldFocusSelectionEditor) {
       input.focus();
       input.select();
+      return;
+    }
+  }
+
+  if (editingNameSelectionId !== null) {
+    const input = app.querySelector(`[data-selection-name="${editingNameSelectionId}"]`);
+
+    if (input instanceof HTMLInputElement && shouldFocusSelectionNameEditor) {
+      input.focus();
+      input.select();
     }
   }
 }
@@ -780,12 +869,38 @@ app.addEventListener("click", (event) => {
   const selectionTarget = target.closest("[data-selection-id]");
   const selectedSlotId = selectionTarget instanceof HTMLElement ? selectionTarget.dataset.selectionId : undefined;
   const selectionEditorTarget = target.closest("[data-selection-editor]");
+  const selectionNameTarget = target.closest("[data-selection-name]");
+  const selectionNameLinkTarget = target.closest("[data-selection-name-link]");
 
   if (selectionTarget instanceof HTMLAnchorElement) {
     event.preventDefault();
   }
 
   if (selectionEditorTarget instanceof HTMLInputElement) {
+    return;
+  }
+
+  if (selectionNameTarget instanceof HTMLInputElement) {
+    return;
+  }
+
+  if (selectionNameLinkTarget instanceof HTMLAnchorElement) {
+    event.preventDefault();
+
+    const selectionId = Number(selectionNameLinkTarget.dataset.selectionNameLink);
+    const selection = selections[selectionId];
+
+    if (!selection) {
+      return;
+    }
+
+    activeSelectionId = selectionId;
+    editingSelectionId = null;
+    editingNameSelectionId = selectionId;
+    isEditingYear = false;
+    shouldFocusSelectionEditor = false;
+    shouldFocusSelectionNameEditor = true;
+    render();
     return;
   }
 
@@ -807,8 +922,10 @@ app.addEventListener("click", (event) => {
 
       activeSelectionId = nextIndex;
       editingSelectionId = null;
+      editingNameSelectionId = null;
       isEditingYear = false;
       shouldFocusSelectionEditor = false;
+      shouldFocusSelectionNameEditor = false;
       render();
       return;
     }
@@ -816,8 +933,10 @@ app.addEventListener("click", (event) => {
     if (selectionAction === "edit") {
       activeSelectionId = selection.id;
       editingSelectionId = null;
+      editingNameSelectionId = null;
       isEditingYear = false;
       shouldFocusSelectionEditor = false;
+      shouldFocusSelectionNameEditor = false;
 
       if (selection.start) {
         displayYear = parseIsoDate(selection.start).getFullYear();
@@ -831,8 +950,10 @@ app.addEventListener("click", (event) => {
       releaseColorIndex(selection.colorIndex);
       selections.splice(selection.id, 1);
       editingSelectionId = null;
+      editingNameSelectionId = null;
       isEditingYear = false;
       shouldFocusSelectionEditor = false;
+      shouldFocusSelectionNameEditor = false;
       normalizeSelections();
       render();
       return;
@@ -842,8 +963,10 @@ app.addEventListener("click", (event) => {
   if (selectedSlotId !== undefined) {
     activeSelectionId = Number(selectedSlotId);
     editingSelectionId = activeSelectionId;
+    editingNameSelectionId = null;
     isEditingYear = false;
     shouldFocusSelectionEditor = true;
+    shouldFocusSelectionNameEditor = false;
 
     if (selections[activeSelectionId] && selections[activeSelectionId].start) {
       displayYear = parseIsoDate(selections[activeSelectionId].start).getFullYear();
@@ -879,10 +1002,14 @@ app.addEventListener("click", (event) => {
 
       activeSelectionId = nextIndex;
       editingSelectionId = nextIndex;
+      editingNameSelectionId = null;
       shouldFocusSelectionEditor = false;
+      shouldFocusSelectionNameEditor = false;
     } else {
       editingSelectionId = null;
+      editingNameSelectionId = null;
       shouldFocusSelectionEditor = false;
+      shouldFocusSelectionNameEditor = false;
     }
 
     isEditingYear = false;
@@ -903,6 +1030,7 @@ app.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       isEditingYear = false;
       shouldFocusSelectionEditor = false;
+      shouldFocusSelectionNameEditor = false;
       render();
       return;
     }
@@ -920,6 +1048,24 @@ app.addEventListener("keydown", (event) => {
     displayYear = nextYear;
     isEditingYear = false;
     shouldFocusSelectionEditor = false;
+    shouldFocusSelectionNameEditor = false;
+    render();
+    return;
+  }
+
+  if (target instanceof HTMLInputElement && target.dataset.selectionName !== undefined) {
+    if (event.key === "Escape") {
+      editingNameSelectionId = null;
+      shouldFocusSelectionNameEditor = false;
+      render();
+      return;
+    }
+
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    commitSelectionName(Number(target.dataset.selectionName), target.value);
     render();
     return;
   }
@@ -946,15 +1092,9 @@ app.addEventListener("keydown", (event) => {
     return;
   }
 
-  const parsedSelection = parseSelectionInput(target.value);
-
-  if (!parsedSelection) {
+  if (!commitSelectionEditor(selectionId, target.value)) {
     return;
   }
-
-  selection.start = parsedSelection.start;
-  selection.end = parsedSelection.end;
-  displayYear = parseIsoDate(selection.start).getFullYear();
 
   const nextIndex = selection.id + 1;
 
@@ -964,8 +1104,50 @@ app.addEventListener("keydown", (event) => {
 
   activeSelectionId = nextIndex;
   editingSelectionId = nextIndex;
+  editingNameSelectionId = null;
   shouldFocusSelectionEditor = false;
+  shouldFocusSelectionNameEditor = false;
   render();
+});
+
+app.addEventListener("blur", (event) => {
+  const target = event.target;
+
+  if (target instanceof HTMLInputElement && target.dataset.selectionEditor !== undefined) {
+    const selectionId = Number(target.dataset.selectionEditor);
+
+    commitSelectionEditor(selectionId, target.value);
+    window.setTimeout(() => {
+      render();
+    }, 0);
+    return;
+  }
+
+  if (!(target instanceof HTMLInputElement) || target.dataset.selectionName === undefined) {
+    return;
+  }
+
+  commitSelectionName(Number(target.dataset.selectionName), target.value);
+  window.setTimeout(() => {
+    render();
+  }, 0);
+}, true);
+
+app.addEventListener("input", (event) => {
+  const target = event.target;
+
+  if (!(target instanceof HTMLInputElement) || target.dataset.selectionName === undefined) {
+    return;
+  }
+
+  const selectionId = Number(target.dataset.selectionName);
+  const selection = selections[selectionId];
+
+  if (!selection) {
+    return;
+  }
+
+  selection.name = target.value;
 });
 
 app.addEventListener("mouseover", (event) => {
