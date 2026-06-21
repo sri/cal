@@ -376,6 +376,81 @@ function buildSelectionPanel(monthsPerRow) {
   `;
 }
 
+function buildSelectionRows(monthsPerRow) {
+  const toggleLabel = selectionsCollapsed ? "▸" : "▾";
+  const rows = [
+    `
+      <tr>
+        <td colspan="${monthsPerRow}" style="padding-top: 6px;">
+          <a href="#" data-selection-toggle="true">${toggleLabel} Selections</a>
+        </td>
+      </tr>
+    `
+  ];
+
+  if (selectionsCollapsed) {
+    return rows.join("");
+  }
+
+  for (const selection of selections) {
+    const isActive = selection.id === activeSelectionId;
+    const isEditing = selection.id === editingSelectionId;
+    const value = formatSelectionValue(selection);
+    const isRangeSelection = Boolean(selection.start && selection.end && selection.start !== selection.end);
+    const primaryAction = isRangeSelection ? "edit" : "done";
+    const primaryIcon = isRangeSelection ? "✎" : "✓";
+    const rowStyle = [
+      "width: 100%;",
+      "border: 1px solid #000;",
+      `background: ${selection.color};`,
+      "padding: 4px 6px;",
+      isActive ? `box-shadow: inset 0 0 0 2px ${selection.border};` : ""
+    ].join(" ");
+    const actions = selection.start
+      ? `
+          <td align="right">
+            <button type="button" data-selection-action="${primaryAction}" data-selection-id="${selection.id}" aria-label="${primaryAction === "edit" ? `Edit ${selection.label}` : `Done with ${selection.label}`}">${primaryIcon}</button>
+            <button type="button" data-selection-action="delete" data-selection-id="${selection.id}" aria-label="Delete ${selection.label}">✕</button>
+          </td>
+        `
+      : "<td></td>";
+    const selectionTrigger = isEditing
+      ? `
+          <input
+            type="text"
+            data-selection-editor="${selection.id}"
+            value="${formatSelectionEditorValue(selection)}"
+            placeholder="MON DD, YYYY - MON DD, YYYY"
+            aria-label="Edit ${selection.label}"
+          />
+        `
+      : `
+          <a href="#" data-selection-id="${selection.id}">
+            ${selection.id + 1}. ${value}
+          </a>
+        `;
+
+    rows.push(`
+      <tr>
+        <td colspan="${monthsPerRow}" style="padding-top: 6px;">
+          <div data-selection-id="${selection.id}" style="${rowStyle} cursor: pointer;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td>
+                  ${selectionTrigger}
+                </td>
+                ${actions}
+              </tr>
+            </table>
+          </div>
+        </td>
+      </tr>
+    `);
+  }
+
+  return rows.join("");
+}
+
 function buildMonthWeeks(year, monthIndex) {
   const firstDay = new Date(year, monthIndex, 1).getDay();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
@@ -454,6 +529,7 @@ function buildMonthTable(year, monthIndex) {
 function buildYearTable(year) {
   const monthsPerRow = getMonthsPerRow();
   const stackedHeader = useStackedHeader();
+  const useMobileLayout = monthsPerRow !== MONTHS_PER_ROW;
   const monthCells = MONTH_NAMES.map((_, monthIndex) => `<td valign="top">${buildMonthTable(year, monthIndex)}</td>`);
   const monthRows = [];
   const dayOfYear = getDayOfYear(TODAY);
@@ -509,7 +585,7 @@ function buildYearTable(year) {
       `;
 
   return `
-    <table align="center" cellpadding="12" cellspacing="0" border="0" width="100%" aria-label="${year} calendar">
+    <table align="center" cellpadding="12" cellspacing="0" border="0"${useMobileLayout ? ` width="100%"` : ""} aria-label="${year} calendar">
       <thead>
         <tr>
           <th
@@ -519,11 +595,15 @@ function buildYearTable(year) {
             ${headerContent}
           </th>
         </tr>
-        <tr>
-          <th colspan="${monthsPerRow}" data-selection-panel>
-            ${buildSelectionPanel(monthsPerRow)}
-          </th>
-        </tr>
+        ${useMobileLayout
+          ? `
+              <tr>
+                <th colspan="${monthsPerRow}" data-selection-panel>
+                  ${buildSelectionPanel(monthsPerRow)}
+                </th>
+              </tr>
+            `
+          : buildSelectionRows(monthsPerRow)}
       </thead>
       <tbody>${monthRows.join("")}</tbody>
     </table>
@@ -572,6 +652,11 @@ function updateVisibleDateButtons() {
 }
 
 function updateSelectionPanel() {
+  if (getMonthsPerRow() === MONTHS_PER_ROW) {
+    render();
+    return;
+  }
+
   const panel = app.querySelector("[data-selection-panel]");
 
   if (!(panel instanceof HTMLElement)) {
