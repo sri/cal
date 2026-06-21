@@ -59,6 +59,8 @@ const SELECTION_COLORS = [
   { color: "#fef08a", border: "#ca8a04" },
   { color: "#dbe4ff", border: "#4338ca" }
 ];
+const ONE_MONTH_MAX_WIDTH = 359;
+const TWO_MONTH_MAX_WIDTH = 899;
 
 let activeSelectionId = 0;
 let displayYear = 2026;
@@ -69,6 +71,24 @@ let selectionsCollapsed = true;
 let shouldFocusSelectionEditor = false;
 let availableColorIndices = SELECTION_COLORS.map((_, index) => index).slice(1);
 let selections = [createSelection(0)];
+
+function getMonthsPerRow() {
+  const width = window.innerWidth;
+
+  if (width <= ONE_MONTH_MAX_WIDTH) {
+    return 1;
+  }
+
+  if (width <= TWO_MONTH_MAX_WIDTH) {
+    return 2;
+  }
+
+  return 3;
+}
+
+function useStackedHeader() {
+  return window.innerWidth <= TWO_MONTH_MAX_WIDTH;
+}
 
 function takeColorIndex(preferredIndex) {
   if (preferredIndex !== undefined) {
@@ -267,12 +287,12 @@ function updateSelection(selection, isoDate) {
   return "single";
 }
 
-function buildSelectionRows() {
+function buildSelectionPanel(monthsPerRow) {
   const rows = [];
   const toggleLabel = selectionsCollapsed ? "▸" : "▾";
   const headerRow = `
     <tr>
-      <td colspan="${MONTHS_PER_ROW}" style="padding-top: 6px;">
+      <td colspan="${monthsPerRow}" style="padding-top: 6px;">
         <a href="#" data-selection-toggle="true">${toggleLabel} Selections</a>
       </td>
     </tr>
@@ -334,7 +354,7 @@ function buildSelectionRows() {
 
     rows.push(`
       <tr>
-        <td colspan="${MONTHS_PER_ROW}" style="padding-top: 6px;">
+        <td colspan="${monthsPerRow}" style="padding-top: 6px;">
           <div data-selection-id="${selection.id}" style="${rowStyle} cursor: pointer;">
             ${content}
           </div>
@@ -343,7 +363,12 @@ function buildSelectionRows() {
     `);
   }
 
-  return headerRow + rows.join("");
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+      ${headerRow}
+      ${rows.join("")}
+    </table>
+  `;
 }
 
 function buildMonthWeeks(year, monthIndex) {
@@ -422,6 +447,8 @@ function buildMonthTable(year, monthIndex) {
 }
 
 function buildYearTable(year) {
+  const monthsPerRow = getMonthsPerRow();
+  const stackedHeader = useStackedHeader();
   const monthCells = MONTH_NAMES.map((_, monthIndex) => `<td valign="top">${buildMonthTable(year, monthIndex)}</td>`);
   const monthRows = [];
   const dayOfYear = getDayOfYear(TODAY);
@@ -440,37 +467,118 @@ function buildYearTable(year) {
       `
     : `<a href="#" data-edit-year="true">${year}</a>`;
 
-  for (let i = 0; i < monthCells.length; i += MONTHS_PER_ROW) {
-    monthRows.push(`<tr>${monthCells.slice(i, i + MONTHS_PER_ROW).join("")}</tr>`);
+  for (let i = 0; i < monthCells.length; i += monthsPerRow) {
+    monthRows.push(`<tr>${monthCells.slice(i, i + monthsPerRow).join("")}</tr>`);
   }
 
+  const headerContent = stackedHeader
+    ? `
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <th align="left">
+              <button type="button" data-year-nav="prev" aria-label="Previous year">&lt;</button>
+              ${yearDisplay}
+              <button type="button" data-year-nav="next" aria-label="Next year">&gt;</button>
+            </th>
+          </tr>
+          <tr>
+            <th align="left" style="padding-top: 6px;">
+              <a href="#" data-jump-current-year="true">${metadataText}</a>
+            </th>
+          </tr>
+        </table>
+      `
+    : `
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <th align="left">
+              <button type="button" data-year-nav="prev" aria-label="Previous year">&lt;</button>
+              ${yearDisplay}
+              <button type="button" data-year-nav="next" aria-label="Next year">&gt;</button>
+            </th>
+            <th align="right">
+              <a href="#" data-jump-current-year="true">${metadataText}</a>
+            </th>
+          </tr>
+        </table>
+      `;
+
   return `
-    <table align="center" cellpadding="12" cellspacing="0" border="0" aria-label="2026 calendar">
+    <table align="center" cellpadding="12" cellspacing="0" border="0" width="100%" aria-label="${year} calendar">
       <thead>
         <tr>
           <th
-            colspan="${MONTHS_PER_ROW}"
+            colspan="${monthsPerRow}"
             style="border-bottom: 1px solid #000; padding-bottom: 8px;"
           >
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <th align="left">
-                  <button type="button" data-year-nav="prev" aria-label="Previous year">&lt;</button>
-                  ${yearDisplay}
-                  <button type="button" data-year-nav="next" aria-label="Next year">&gt;</button>
-                </th>
-                <th align="right">
-                  <a href="#" data-jump-current-year="true">${metadataText}</a>
-                </th>
-              </tr>
-            </table>
+            ${headerContent}
           </th>
         </tr>
-        ${buildSelectionRows()}
+        <tr>
+          <th colspan="${monthsPerRow}" data-selection-panel>
+            ${buildSelectionPanel(monthsPerRow)}
+          </th>
+        </tr>
       </thead>
       <tbody>${monthRows.join("")}</tbody>
     </table>
   `;
+}
+
+function getDateButtonStyle(isoDate) {
+  const selection = getSelectionForDate(isoDate);
+  const year = Number(isoDate.slice(0, 4));
+  const monthIndex = Number(isoDate.slice(5, 7)) - 1;
+  const day = Number(isoDate.slice(8, 10));
+  const isCurrentDay = year === CURRENT_YEAR && monthIndex === CURRENT_MONTH && day === CURRENT_DAY;
+  const styles = [
+    "border: 1px solid transparent;",
+    "background: transparent;",
+    "padding: 2px 4px;",
+    "cursor: pointer;"
+  ];
+
+  if (selection) {
+    styles.push(`border-color: ${selection.border};`, `background: ${selection.color};`);
+  } else if (isCurrentDay) {
+    styles.push(HIGHLIGHT_STYLE);
+  }
+
+  return {
+    selected: selection ? "true" : "false",
+    styleText: styles.join(" ")
+  };
+}
+
+function updateVisibleDateButtons() {
+  const dateButtons = app.querySelectorAll("button[data-date]");
+
+  for (const button of dateButtons) {
+    const isoDate = button.dataset.date;
+
+    if (!isoDate) {
+      continue;
+    }
+
+    const nextState = getDateButtonStyle(isoDate);
+    button.dataset.selected = nextState.selected;
+    button.style.cssText = nextState.styleText;
+  }
+}
+
+function updateSelectionPanel() {
+  const panel = app.querySelector("[data-selection-panel]");
+
+  if (!(panel instanceof HTMLElement)) {
+    return;
+  }
+
+  panel.innerHTML = buildSelectionPanel(getMonthsPerRow());
+}
+
+function updateSelectionUi() {
+  updateSelectionPanel();
+  updateVisibleDateButtons();
 }
 
 function render() {
@@ -659,6 +767,8 @@ app.addEventListener("click", (event) => {
   const isoDate = dateTarget instanceof HTMLElement ? dateTarget.dataset.date : undefined;
 
   if (isoDate) {
+    const shouldPatchOnly = !isEditingYear && displayYear === parseIsoDate(isoDate).getFullYear();
+
     if (selectionsCollapsed) {
       selectionsCollapsed = false;
     }
@@ -686,6 +796,11 @@ app.addEventListener("click", (event) => {
     }
 
     isEditingYear = false;
+
+    if (shouldPatchOnly) {
+      updateSelectionUi();
+      return;
+    }
 
     render();
   }
