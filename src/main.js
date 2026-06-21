@@ -74,6 +74,11 @@ let selections = [createSelection(0)];
 
 function getMonthsPerRow() {
   const width = window.innerWidth;
+  const isPortrait = window.innerHeight >= window.innerWidth;
+
+  if (!isPortrait) {
+    return 3;
+  }
 
   if (width <= ONE_MONTH_MAX_WIDTH) {
     return 1;
@@ -87,7 +92,7 @@ function getMonthsPerRow() {
 }
 
 function useStackedHeader() {
-  return window.innerWidth <= TWO_MONTH_MAX_WIDTH;
+  return window.innerHeight >= window.innerWidth && window.innerWidth <= TWO_MONTH_MAX_WIDTH;
 }
 
 function takeColorIndex(preferredIndex) {
