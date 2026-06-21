@@ -66,6 +66,7 @@ let nextSelectionNumber = 2;
 let editingSelectionId = null;
 let isEditingYear = false;
 let selectionsCollapsed = true;
+let shouldFocusSelectionEditor = false;
 let availableColorIndices = SELECTION_COLORS.map((_, index) => index).slice(1);
 let selections = [createSelection(0)];
 
@@ -488,7 +489,7 @@ function render() {
   if (editingSelectionId !== null) {
     const input = app.querySelector(`[data-selection-editor="${editingSelectionId}"]`);
 
-    if (input instanceof HTMLInputElement) {
+    if (input instanceof HTMLInputElement && shouldFocusSelectionEditor) {
       input.focus();
       input.select();
     }
@@ -547,6 +548,7 @@ app.addEventListener("click", (event) => {
     event.preventDefault();
     isEditingYear = true;
     editingSelectionId = null;
+    shouldFocusSelectionEditor = false;
     render();
     return;
   }
@@ -560,6 +562,7 @@ app.addEventListener("click", (event) => {
     selectionsCollapsed = !selectionsCollapsed;
     editingSelectionId = null;
     isEditingYear = false;
+    shouldFocusSelectionEditor = false;
     render();
     return;
   }
@@ -569,6 +572,7 @@ app.addEventListener("click", (event) => {
     displayYear = CURRENT_YEAR;
     editingSelectionId = null;
     isEditingYear = false;
+    shouldFocusSelectionEditor = false;
     render();
     return;
   }
@@ -606,6 +610,7 @@ app.addEventListener("click", (event) => {
       activeSelectionId = nextIndex;
       editingSelectionId = null;
       isEditingYear = false;
+      shouldFocusSelectionEditor = false;
       render();
       return;
     }
@@ -614,6 +619,7 @@ app.addEventListener("click", (event) => {
       activeSelectionId = selection.id;
       editingSelectionId = null;
       isEditingYear = false;
+      shouldFocusSelectionEditor = false;
 
       if (selection.start) {
         displayYear = parseIsoDate(selection.start).getFullYear();
@@ -628,6 +634,7 @@ app.addEventListener("click", (event) => {
       selections.splice(selection.id, 1);
       editingSelectionId = null;
       isEditingYear = false;
+      shouldFocusSelectionEditor = false;
       normalizeSelections();
       render();
       return;
@@ -638,6 +645,7 @@ app.addEventListener("click", (event) => {
     activeSelectionId = Number(selectedSlotId);
     editingSelectionId = activeSelectionId;
     isEditingYear = false;
+    shouldFocusSelectionEditor = true;
 
     if (selections[activeSelectionId] && selections[activeSelectionId].start) {
       displayYear = parseIsoDate(selections[activeSelectionId].start).getFullYear();
@@ -671,8 +679,10 @@ app.addEventListener("click", (event) => {
 
       activeSelectionId = nextIndex;
       editingSelectionId = nextIndex;
+      shouldFocusSelectionEditor = false;
     } else {
       editingSelectionId = null;
+      shouldFocusSelectionEditor = false;
     }
 
     isEditingYear = false;
@@ -687,6 +697,7 @@ app.addEventListener("keydown", (event) => {
   if (target instanceof HTMLInputElement && target.dataset.yearEditor === "true") {
     if (event.key === "Escape") {
       isEditingYear = false;
+      shouldFocusSelectionEditor = false;
       render();
       return;
     }
@@ -703,6 +714,7 @@ app.addEventListener("keydown", (event) => {
 
     displayYear = nextYear;
     isEditingYear = false;
+    shouldFocusSelectionEditor = false;
     render();
     return;
   }
@@ -713,6 +725,7 @@ app.addEventListener("keydown", (event) => {
 
   if (event.key === "Escape") {
     editingSelectionId = null;
+    shouldFocusSelectionEditor = false;
     render();
     return;
   }
@@ -746,6 +759,7 @@ app.addEventListener("keydown", (event) => {
 
   activeSelectionId = nextIndex;
   editingSelectionId = nextIndex;
+  shouldFocusSelectionEditor = false;
   render();
 });
 
