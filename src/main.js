@@ -72,7 +72,8 @@ const SELECTION_COLORS = [
 ];
 const ONE_MONTH_MAX_WIDTH = 359;
 const TWO_MONTH_MAX_WIDTH = 899;
-const ANNIVERSARY_YEAR_SPAN = 10;
+const YEAR_OPTION_MIN = CURRENT_YEAR - 100;
+const YEAR_OPTION_MAX = CURRENT_YEAR + 100;
 const SELECTION_METADATA_FUNCTIONS = [
   {
     key: "daysSince",
@@ -187,6 +188,37 @@ const SELECTION_METADATA_FUNCTIONS = [
     }
   },
   {
+    key: "liveCountDown",
+    evaluate(context) {
+      const referenceDate = getCountdownReferenceDate(context);
+
+      if (!referenceDate) {
+        return null;
+      }
+
+      const now = new Date();
+
+      if (referenceDate < now) {
+        return null;
+      }
+
+      return formatDurationParts(Math.floor((referenceDate - now) / MS_PER_SECOND));
+    }
+  },
+  {
+    key: "liveCountUp",
+    evaluate(context) {
+      const referenceDate = context.endDate;
+      const now = new Date();
+
+      if (referenceDate > now) {
+        return null;
+      }
+
+      return formatDurationParts(Math.floor((now - referenceDate) / MS_PER_SECOND));
+    }
+  },
+  {
     key: "containsToday",
     evaluate(context) {
       return context.containsToday;
@@ -206,8 +238,14 @@ const SELECTION_METADATA_FUNCTIONS = [
   },
   {
     key: "anniversary",
-    evaluate(context) {
-      return buildAnniversaryEntries(context);
+    getDefaultArgs() {
+      return {
+        fromYear: CURRENT_YEAR - 10,
+        toYear: CURRENT_YEAR + 10
+      };
+    },
+    evaluate(context, args) {
+      return buildAnniversaryEntries(context, args);
     }
   }
 ];
@@ -303,6 +341,7 @@ function createSelection(id, labelNumber = id + 1, colorIndex = takeColorIndex(i
     end: null,
     name: "",
     metadataFunctionKeys: [],
+    metadataFunctionArgs: {},
     metadataDraft: "",
     hiddenMetadataFunctionKeys: []
   };
@@ -349,6 +388,31 @@ function getWholeDayDifference(laterDate, earlierDate) {
   return Math.floor((laterDate - earlierDate) / MS_PER_DAY);
 }
 
+function formatDurationParts(totalSeconds) {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const days = Math.floor(safeSeconds / (24 * 60 * 60));
+  const hours = Math.floor((safeSeconds % (24 * 60 * 60)) / (60 * 60));
+  const minutes = Math.floor((safeSeconds % (60 * 60)) / 60);
+  const seconds = safeSeconds % 60;
+  const parts = [];
+
+  if (days > 0) {
+    parts.push(`${days} ${days === 1 ? "day" : "days"}`);
+  }
+
+  if (days > 0 || hours > 0) {
+    parts.push(`${hours} ${hours === 1 ? "hour" : "hours"}`);
+  }
+
+  if (days > 0 || hours > 0 || minutes > 0) {
+    parts.push(`${minutes} ${minutes === 1 ? "min" : "mins"}`);
+  }
+
+  parts.push(`${seconds} ${seconds === 1 ? "sec" : "secs"}`);
+
+  return parts.join(", ");
+}
+
 function createDateInYear(year, monthIndex, day) {
   const date = new Date(year, monthIndex, day);
 
@@ -363,15 +427,39 @@ function formatAnniversaryDate(date) {
   return ANNIVERSARY_DATE_FORMATTER.format(date);
 }
 
-function buildAnniversaryEntries(context) {
+function normalizeAnniversaryArgs(rawArgs) {
+  const defaults = {
+    fromYear: CURRENT_YEAR - 10,
+    toYear: CURRENT_YEAR + 10
+  };
+  const parsedFromYear = Number.parseInt(String(rawArgs?.fromYear ?? defaults.fromYear), 10);
+  const parsedToYear = Number.parseInt(String(rawArgs?.toYear ?? defaults.toYear), 10);
+  const safeFromYear = Number.isInteger(parsedFromYear) ? parsedFromYear : defaults.fromYear;
+  const safeToYear = Number.isInteger(parsedToYear) ? parsedToYear : defaults.toYear;
+
+  if (safeFromYear <= safeToYear) {
+    return {
+      fromYear: safeFromYear,
+      toYear: safeToYear
+    };
+  }
+
+  return {
+    fromYear: safeToYear,
+    toYear: safeFromYear
+  };
+}
+
+function buildAnniversaryEntries(context, args) {
   const entries = [];
   const startMonthIndex = context.startDate.getMonth();
   const startDay = context.startDate.getDate();
   const endMonthIndex = context.endDate.getMonth();
   const endDay = context.endDate.getDate();
   const yearOffset = context.endDate.getFullYear() - context.startDate.getFullYear();
+  const normalizedArgs = normalizeAnniversaryArgs(args);
 
-  for (let year = CURRENT_YEAR - ANNIVERSARY_YEAR_SPAN; year <= CURRENT_YEAR + ANNIVERSARY_YEAR_SPAN; year += 1) {
+  for (let year = normalizedArgs.fromYear; year <= normalizedArgs.toYear; year += 1) {
     const startAnniversary = createDateInYear(year, startMonthIndex, startDay);
 
     if (!startAnniversary) {
@@ -539,6 +627,14 @@ function deriveSelectionContext(selection) {
   };
 }
 
+function getCountdownReferenceDate(context) {
+  if (context.isActive && !context.isSingleDay) {
+    return context.endDate;
+  }
+
+  return context.startDate;
+}
+
 function getAutomaticMetadataFunctionKeys(context) {
   const defaultKeys = ["durationDays"];
 
@@ -555,6 +651,24 @@ function getAutomaticMetadataFunctionKeys(context) {
   }
 
   return defaultKeys;
+}
+
+function getSelectionFunctionArgs(selection, functionKey) {
+  const definition = SELECTION_METADATA_FUNCTIONS_BY_KEY[functionKey];
+  const storedArgs = selection.metadataFunctionArgs?.[functionKey] ?? {};
+  const defaultArgs = typeof definition?.getDefaultArgs === "function" ? definition.getDefaultArgs() : {};
+
+  if (functionKey === "anniversary") {
+    return normalizeAnniversaryArgs({
+      ...defaultArgs,
+      ...storedArgs
+    });
+  }
+
+  return {
+    ...defaultArgs,
+    ...storedArgs
+  };
 }
 
 function resolveMetadataFunctionKey(value) {
@@ -590,6 +704,12 @@ function addMetadataFunctionToSelection(selectionId, rawValue) {
     selection.metadataFunctionKeys.push(functionKey);
   }
 
+  const definition = SELECTION_METADATA_FUNCTIONS_BY_KEY[functionKey];
+
+  if (definition && typeof definition.getDefaultArgs === "function" && !selection.metadataFunctionArgs[functionKey]) {
+    selection.metadataFunctionArgs[functionKey] = definition.getDefaultArgs();
+  }
+
   selection.hiddenMetadataFunctionKeys = selection.hiddenMetadataFunctionKeys.filter((key) => key !== functionKey);
   selection.metadataDraft = "";
   return true;
@@ -609,10 +729,35 @@ function removeMetadataFunctionFromSelection(selectionId, functionKey) {
   }
 }
 
+function updateSelectionFunctionArg(selectionId, functionKey, argKey, rawValue) {
+  const selection = selections[selectionId];
+
+  if (!selection) {
+    return;
+  }
+
+  if (!selection.metadataFunctionArgs[functionKey]) {
+    selection.metadataFunctionArgs[functionKey] = getSelectionFunctionArgs(selection, functionKey);
+  }
+
+  selection.metadataFunctionArgs[functionKey] = {
+    ...selection.metadataFunctionArgs[functionKey],
+    [argKey]: rawValue
+  };
+
+  if (functionKey === "anniversary") {
+    selection.metadataFunctionArgs[functionKey] = normalizeAnniversaryArgs(selection.metadataFunctionArgs[functionKey]);
+  }
+}
+
 function humanizeFunctionKey(functionKey) {
   return functionKey
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function isLiveMetadataFunctionKey(functionKey) {
+  return functionKey === "liveCountDown" || functionKey === "liveCountUp";
 }
 
 function serializeMetadataValue(value) {
@@ -631,7 +776,13 @@ function serializeMetadataCopyText(functionKey, value) {
   return `${humanizeFunctionKey(functionKey)}:\n${serializeMetadataValue(value)}`;
 }
 
-function renderMetadataValue(value) {
+function renderMetadataValue(value, functionKey, selectionId) {
+  if (isLiveMetadataFunctionKey(functionKey)) {
+    const textValue = value === null ? "n/a" : String(value);
+
+    return `<span data-live-metadata="${selectionId}" data-live-function-key="${functionKey}" style="font-family: ${MONOSPACE_FONT_STACK};">${escapeHtml(textValue)}</span>`;
+  }
+
   if (Array.isArray(value)) {
     return value.map((entry) => `<div style="font-family: ${MONOSPACE_FONT_STACK};">${escapeHtml(String(entry))}</div>`).join("");
   }
@@ -658,6 +809,42 @@ async function copyTextValue(text) {
   textarea.select();
   document.execCommand("copy");
   textarea.remove();
+}
+
+function buildYearSelectOptions(selectedYear) {
+  const options = [];
+
+  for (let year = YEAR_OPTION_MIN; year <= YEAR_OPTION_MAX; year += 1) {
+    options.push(`<option value="${year}"${year === selectedYear ? " selected" : ""}>${year}</option>`);
+  }
+
+  return options.join("");
+}
+
+function buildMetadataArgumentControls(selection, functionKey, args) {
+  if (functionKey !== "anniversary") {
+    return "";
+  }
+
+  return `
+    <tr>
+      <td></td>
+      <td colspan="2" style="padding-top: 2px;">
+        <label>
+          From
+          <select data-selection-function-arg="${selection.id}" data-selection-function-key="${functionKey}" data-selection-function-arg-key="fromYear">
+            ${buildYearSelectOptions(args.fromYear)}
+          </select>
+        </label>
+        <label style="padding-left: 8px;">
+          To
+          <select data-selection-function-arg="${selection.id}" data-selection-function-key="${functionKey}" data-selection-function-arg-key="toYear">
+            ${buildYearSelectOptions(args.toYear)}
+          </select>
+        </label>
+      </td>
+    </tr>
+  `;
 }
 
 function buildSelectionNameControl(selection) {
@@ -742,9 +929,11 @@ function buildSelectionMetadata(selection) {
       continue;
     }
 
-    const value = definition.evaluate(context);
-    const valueMarkup = renderMetadataValue(value);
+    const args = getSelectionFunctionArgs(selection, functionKey);
+    const value = definition.evaluate(context, args);
+    const valueMarkup = renderMetadataValue(value, definition.key, selection.id);
     const copyValue = escapeHtml(serializeMetadataCopyText(definition.key, value));
+    const argumentControls = buildMetadataArgumentControls(selection, functionKey, args);
 
     metadataLines.push(`
       <tr>
@@ -755,6 +944,7 @@ function buildSelectionMetadata(selection) {
           <button type="button" data-selection-function-remove="${selection.id}" data-selection-function-key="${definition.key}" aria-label="Remove ${humanizeFunctionKey(definition.key)}">✕</button>
         </td>
       </tr>
+      ${argumentControls}
     `);
   }
 
@@ -1146,10 +1336,41 @@ function updateSelectionPanel() {
 function updateSelectionUi() {
   updateSelectionPanel();
   updateVisibleDateButtons();
+  updateLiveMetadataValues();
+}
+
+function updateLiveMetadataValues() {
+  const liveMetadataValues = app.querySelectorAll("[data-live-metadata]");
+
+  for (const valueNode of liveMetadataValues) {
+    if (!(valueNode instanceof HTMLElement)) {
+      continue;
+    }
+
+    const selectionId = Number(valueNode.dataset.liveMetadata);
+    const functionKey = valueNode.dataset.liveFunctionKey;
+    const selection = selections[selectionId];
+
+    if (!selection || !functionKey) {
+      continue;
+    }
+
+    const definition = SELECTION_METADATA_FUNCTIONS_BY_KEY[functionKey];
+    const context = deriveSelectionContext(selection);
+    const args = getSelectionFunctionArgs(selection, functionKey);
+
+    if (!definition || !context) {
+      continue;
+    }
+
+    const nextValue = definition.evaluate(context, args);
+    valueNode.textContent = nextValue === null ? "n/a" : String(nextValue);
+  }
 }
 
 function render() {
   app.innerHTML = `${buildYearTable(displayYear)}${buildSelectionFunctionOptions()}`;
+  updateLiveMetadataValues();
 
   if (isEditingYear) {
     const yearInput = app.querySelector("[data-year-editor='true']");
@@ -1270,6 +1491,7 @@ app.addEventListener("click", (event) => {
   const selectionNameTarget = target.closest("[data-selection-name]");
   const selectionNameLinkTarget = target.closest("[data-selection-name-link]");
   const selectionFunctionInputTarget = target.closest("[data-selection-function-input]");
+  const selectionFunctionArgTarget = target.closest("[data-selection-function-arg]");
   const selectionFunctionCopyTarget = target.closest("[data-selection-function-copy]");
   const selectionFunctionRemoveTarget = target.closest("[data-selection-function-remove]");
 
@@ -1289,6 +1511,10 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  if (selectionFunctionArgTarget instanceof HTMLSelectElement) {
+    return;
+  }
+
   if (selectionFunctionCopyTarget instanceof HTMLButtonElement) {
     const selectionId = Number(selectionFunctionCopyTarget.dataset.selectionFunctionCopy);
     const functionKey = selectionFunctionCopyTarget.dataset.selectionFunctionKey;
@@ -1300,12 +1526,13 @@ app.addEventListener("click", (event) => {
 
     const definition = SELECTION_METADATA_FUNCTIONS_BY_KEY[functionKey];
     const context = deriveSelectionContext(selection);
+    const args = getSelectionFunctionArgs(selection, functionKey);
 
     if (!definition || !context) {
       return;
     }
 
-    void copyTextValue(serializeMetadataCopyText(functionKey, definition.evaluate(context)));
+    void copyTextValue(serializeMetadataCopyText(functionKey, definition.evaluate(context, args)));
     return;
   }
 
@@ -1631,6 +1858,20 @@ app.addEventListener("input", (event) => {
 app.addEventListener("change", (event) => {
   const target = event.target;
 
+  if (target instanceof HTMLSelectElement && target.dataset.selectionFunctionArg !== undefined) {
+    const selectionId = Number(target.dataset.selectionFunctionArg);
+    const functionKey = target.dataset.selectionFunctionKey;
+    const argKey = target.dataset.selectionFunctionArgKey;
+
+    if (!functionKey || !argKey) {
+      return;
+    }
+
+    updateSelectionFunctionArg(selectionId, functionKey, argKey, target.value);
+    render();
+    return;
+  }
+
   if (!(target instanceof HTMLInputElement) || target.dataset.selectionFunctionInput === undefined) {
     return;
   }
@@ -1661,3 +1902,6 @@ app.addEventListener("mouseout", (event) => {
 });
 
 render();
+window.setInterval(() => {
+  updateLiveMetadataValues();
+}, MS_PER_SECOND);
