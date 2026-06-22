@@ -74,6 +74,7 @@ const ONE_MONTH_MAX_WIDTH = 359;
 const TWO_MONTH_MAX_WIDTH = 899;
 const YEAR_OPTION_MIN = CURRENT_YEAR - 100;
 const YEAR_OPTION_MAX = CURRENT_YEAR + 100;
+const SESSION_STORAGE_KEY = "multical-session-state";
 const SELECTION_METADATA_FUNCTIONS = [
   {
     key: "daysSince",
@@ -345,6 +346,120 @@ function createSelection(id, labelNumber = id + 1, colorIndex = takeColorIndex(i
     metadataDraft: "",
     hiddenMetadataFunctionKeys: []
   };
+}
+
+function rebuildAvailableColorIndices() {
+  const usedColorIndices = new Set(
+    selections
+      .map((selection) => selection.colorIndex)
+      .filter((colorIndex) => Number.isInteger(colorIndex) && colorIndex >= 0 && colorIndex < SELECTION_COLORS.length)
+  );
+
+  availableColorIndices = SELECTION_COLORS
+    .map((_, index) => index)
+    .filter((index) => index !== 0 && !usedColorIndices.has(index));
+}
+
+function serializeSelection(selection) {
+  return {
+    id: selection.id,
+    label: selection.label,
+    colorIndex: selection.colorIndex,
+    start: selection.start,
+    end: selection.end,
+    name: selection.name,
+    metadataFunctionKeys: selection.metadataFunctionKeys,
+    metadataFunctionArgs: selection.metadataFunctionArgs,
+    hiddenMetadataFunctionKeys: selection.hiddenMetadataFunctionKeys
+  };
+}
+
+function hydrateSelection(rawSelection, index) {
+  const rawColorIndex = rawSelection?.colorIndex;
+  let nextColorIndex = 0;
+
+  if (Number.isInteger(rawColorIndex) && rawColorIndex >= 0 && rawColorIndex < SELECTION_COLORS.length) {
+    nextColorIndex = rawColorIndex === 0 ? 0 : takeColorIndex(rawColorIndex);
+  } else {
+    nextColorIndex = index === 0 ? 0 : takeColorIndex();
+  }
+
+  const palette = SELECTION_COLORS[nextColorIndex];
+  const nextSelection = {
+    id: index,
+    label: typeof rawSelection?.label === "string" ? rawSelection.label : `Selection ${index + 1}`,
+    color: palette.color,
+    border: palette.border,
+    colorIndex: nextColorIndex,
+    start: typeof rawSelection?.start === "string" ? rawSelection.start : null,
+    end: typeof rawSelection?.end === "string" ? rawSelection.end : null,
+    name: typeof rawSelection?.name === "string" ? rawSelection.name : "",
+    metadataFunctionKeys: Array.isArray(rawSelection?.metadataFunctionKeys)
+      ? rawSelection.metadataFunctionKeys.filter((key) => typeof key === "string" && SELECTION_METADATA_FUNCTIONS_BY_KEY[key])
+      : [],
+    metadataFunctionArgs: typeof rawSelection?.metadataFunctionArgs === "object" && rawSelection.metadataFunctionArgs !== null
+      ? rawSelection.metadataFunctionArgs
+      : {},
+    metadataDraft: "",
+    hiddenMetadataFunctionKeys: Array.isArray(rawSelection?.hiddenMetadataFunctionKeys)
+      ? rawSelection.hiddenMetadataFunctionKeys.filter((key) => typeof key === "string" && SELECTION_METADATA_FUNCTIONS_BY_KEY[key])
+      : []
+  };
+
+  if (nextSelection.start && nextSelection.end && compareIsoDates(nextSelection.start, nextSelection.end) > 0) {
+    const originalStart = nextSelection.start;
+    nextSelection.start = nextSelection.end;
+    nextSelection.end = originalStart;
+  }
+
+  return nextSelection;
+}
+
+function saveSessionState() {
+  try {
+    const nextState = {
+      activeSelectionId,
+      displayYear,
+      nextSelectionNumber,
+      selectionsCollapsed,
+      selections: selections.map(serializeSelection)
+    };
+
+    window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextState));
+  } catch {
+    // Ignore session storage failures and keep the app usable.
+  }
+}
+
+function loadSessionState() {
+  try {
+    const rawState = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+
+    if (!rawState) {
+      rebuildAvailableColorIndices();
+      return;
+    }
+
+    const parsedState = JSON.parse(rawState);
+    const rawSelections = Array.isArray(parsedState?.selections) ? parsedState.selections : [];
+
+    availableColorIndices = SELECTION_COLORS.map((_, index) => index).slice(1);
+    selections = rawSelections.length > 0
+      ? rawSelections.map((rawSelection, index) => hydrateSelection(rawSelection, index))
+      : [createSelection(0)];
+
+    rebuildAvailableColorIndices();
+
+    activeSelectionId = Number.isInteger(parsedState?.activeSelectionId) ? parsedState.activeSelectionId : 0;
+    displayYear = Number.isInteger(parsedState?.displayYear) ? parsedState.displayYear : displayYear;
+    nextSelectionNumber = Number.isInteger(parsedState?.nextSelectionNumber) ? parsedState.nextSelectionNumber : nextSelectionNumber;
+    selectionsCollapsed = typeof parsedState?.selectionsCollapsed === "boolean" ? parsedState.selectionsCollapsed : selectionsCollapsed;
+
+    normalizeSelections();
+  } catch {
+    selections = [createSelection(0)];
+    rebuildAvailableColorIndices();
+  }
 }
 
 function getDayOfYear(date) {
@@ -1337,6 +1452,7 @@ function updateSelectionUi() {
   updateSelectionPanel();
   updateVisibleDateButtons();
   updateLiveMetadataValues();
+  saveSessionState();
 }
 
 function updateLiveMetadataValues() {
@@ -1371,6 +1487,7 @@ function updateLiveMetadataValues() {
 function render() {
   app.innerHTML = `${buildYearTable(displayYear)}${buildSelectionFunctionOptions()}`;
   updateLiveMetadataValues();
+  saveSessionState();
 
   if (isEditingYear) {
     const yearInput = app.querySelector("[data-year-editor='true']");
@@ -1901,6 +2018,7 @@ app.addEventListener("mouseout", (event) => {
   target.style.background = "transparent";
 });
 
+loadSessionState();
 render();
 window.setInterval(() => {
   updateLiveMetadataValues();
