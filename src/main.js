@@ -22,6 +22,7 @@ const MONTH_NAMES = [
 const MONTHS_PER_ROW = 3;
 const DAY_NAMES = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const WEEKS_PER_MONTH = 6;
+const MONOSPACE_FONT_STACK = "Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
 const MS_PER_SECOND = 1000;
 const MS_PER_MINUTE = 60 * MS_PER_SECOND;
 const MS_PER_HOUR = 60 * MS_PER_MINUTE;
@@ -51,6 +52,12 @@ const SHORT_MONTH_DAY_YEAR_FORMATTER = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric"
 });
+const ANNIVERSARY_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  year: "numeric"
+});
 const SELECTION_COLORS = [
   { color: "#dbeafe", border: "#2563eb" },
   { color: "#dcfce7", border: "#16a34a" },
@@ -65,6 +72,7 @@ const SELECTION_COLORS = [
 ];
 const ONE_MONTH_MAX_WIDTH = 359;
 const TWO_MONTH_MAX_WIDTH = 899;
+const ANNIVERSARY_YEAR_SPAN = 10;
 const SELECTION_METADATA_FUNCTIONS = [
   {
     key: "daysSince",
@@ -194,6 +202,12 @@ const SELECTION_METADATA_FUNCTIONS = [
     key: "weekdayStart",
     evaluate(context) {
       return context.weekdayStart;
+    }
+  },
+  {
+    key: "anniversary",
+    evaluate(context) {
+      return buildAnniversaryEntries(context);
     }
   }
 ];
@@ -330,6 +344,52 @@ function getDaySpan(startDate, endDate) {
 
 function getWholeDayDifference(laterDate, earlierDate) {
   return Math.floor((laterDate - earlierDate) / MS_PER_DAY);
+}
+
+function createDateInYear(year, monthIndex, day) {
+  const date = new Date(year, monthIndex, day);
+
+  if (date.getFullYear() !== year || date.getMonth() !== monthIndex || date.getDate() !== day) {
+    return null;
+  }
+
+  return date;
+}
+
+function formatAnniversaryDate(date) {
+  return ANNIVERSARY_DATE_FORMATTER.format(date);
+}
+
+function buildAnniversaryEntries(context) {
+  const entries = [];
+  const startMonthIndex = context.startDate.getMonth();
+  const startDay = context.startDate.getDate();
+  const endMonthIndex = context.endDate.getMonth();
+  const endDay = context.endDate.getDate();
+  const yearOffset = context.endDate.getFullYear() - context.startDate.getFullYear();
+
+  for (let year = CURRENT_YEAR - ANNIVERSARY_YEAR_SPAN; year <= CURRENT_YEAR + ANNIVERSARY_YEAR_SPAN; year += 1) {
+    const startAnniversary = createDateInYear(year, startMonthIndex, startDay);
+
+    if (!startAnniversary) {
+      continue;
+    }
+
+    if (context.isSingleDay) {
+      entries.push(formatAnniversaryDate(startAnniversary));
+      continue;
+    }
+
+    const endAnniversary = createDateInYear(year + yearOffset, endMonthIndex, endDay);
+
+    if (!endAnniversary) {
+      continue;
+    }
+
+    entries.push(`${formatAnniversaryDate(startAnniversary)} - ${formatAnniversaryDate(endAnniversary)}`);
+  }
+
+  return entries;
 }
 
 function formatSelectionValue(selection) {
@@ -552,6 +612,47 @@ function humanizeFunctionKey(functionKey) {
     .replace(/^./, (letter) => letter.toUpperCase());
 }
 
+function serializeMetadataValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry)).join("\n");
+  }
+
+  if (value === null) {
+    return "n/a";
+  }
+
+  return String(value);
+}
+
+function renderMetadataValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => `<div style="font-family: ${MONOSPACE_FONT_STACK};">${escapeHtml(String(entry))}</div>`).join("");
+  }
+
+  if (value === null) {
+    return `<span style="font-family: ${MONOSPACE_FONT_STACK};">n/a</span>`;
+  }
+
+  return `<span style="font-family: ${MONOSPACE_FONT_STACK};">${escapeHtml(String(value))}</span>`;
+}
+
+async function copyTextValue(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "absolute";
+  textarea.style.left = "-9999px";
+  document.body.append(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+}
+
 function buildSelectionNameControl(selection) {
   if (!selection.start) {
     return "";
@@ -573,7 +674,7 @@ function buildSelectionNameControl(selection) {
   const nameText = selection.name.trim() || "(no name)";
 
   return `
-    <a href="#" data-selection-name-link="${selection.id}" aria-label="Name ${selection.label}">
+    <a href="#" data-selection-name-link="${selection.id}" aria-label="Name ${selection.label}" style="font-family: ${MONOSPACE_FONT_STACK};">
       ${escapeHtml(nameText)}
     </a>
   `;
@@ -643,13 +744,15 @@ function buildSelectionMetadata(selection) {
     }
 
     const value = definition.evaluate(context);
-    const valueText = value === null ? "n/a" : String(value);
+    const valueMarkup = renderMetadataValue(value);
+    const copyValue = escapeHtml(serializeMetadataValue(value));
 
     metadataLines.push(`
       <tr>
         <td>${escapeHtml(humanizeFunctionKey(definition.key))}</td>
-        <td>${escapeHtml(valueText)}</td>
+        <td>${valueMarkup}</td>
         <td align="right">
+          <button type="button" data-selection-function-copy="${selection.id}" data-selection-function-key="${definition.key}" data-selection-function-value="${copyValue}" aria-label="Copy ${humanizeFunctionKey(definition.key)}">⧉</button>
           <button type="button" data-selection-function-remove="${selection.id}" data-selection-function-key="${definition.key}" aria-label="Remove ${humanizeFunctionKey(definition.key)}">✕</button>
         </td>
       </tr>
@@ -659,13 +762,6 @@ function buildSelectionMetadata(selection) {
   return `
     <div style="border-top: 1px solid rgba(0, 0, 0, 0.2); margin-top: 6px; padding-top: 6px;">
       <table width="100%" cellpadding="3" cellspacing="0" border="0">
-        <thead>
-          <tr>
-            <th align="left">Function</th>
-            <th align="left">Value</th>
-            <th align="right">Remove</th>
-          </tr>
-        </thead>
         <tbody>
           ${metadataLines.join("")}
           <tr>
@@ -714,7 +810,7 @@ function buildSelectionContent(selection) {
         />
       `
     : `
-        <a href="#" data-selection-id="${selection.id}">
+        <a href="#" data-selection-id="${selection.id}" style="font-family: ${MONOSPACE_FONT_STACK};">
           ${selection.id + 1}. ${value}
         </a>
       `;
@@ -1175,6 +1271,7 @@ app.addEventListener("click", (event) => {
   const selectionNameTarget = target.closest("[data-selection-name]");
   const selectionNameLinkTarget = target.closest("[data-selection-name-link]");
   const selectionFunctionInputTarget = target.closest("[data-selection-function-input]");
+  const selectionFunctionCopyTarget = target.closest("[data-selection-function-copy]");
   const selectionFunctionRemoveTarget = target.closest("[data-selection-function-remove]");
 
   if (selectionTarget instanceof HTMLAnchorElement) {
@@ -1190,6 +1287,26 @@ app.addEventListener("click", (event) => {
   }
 
   if (selectionFunctionInputTarget instanceof HTMLInputElement) {
+    return;
+  }
+
+  if (selectionFunctionCopyTarget instanceof HTMLButtonElement) {
+    const selectionId = Number(selectionFunctionCopyTarget.dataset.selectionFunctionCopy);
+    const functionKey = selectionFunctionCopyTarget.dataset.selectionFunctionKey;
+    const selection = selections[selectionId];
+
+    if (!selection || !functionKey) {
+      return;
+    }
+
+    const definition = SELECTION_METADATA_FUNCTIONS_BY_KEY[functionKey];
+    const context = deriveSelectionContext(selection);
+
+    if (!definition || !context) {
+      return;
+    }
+
+    void copyTextValue(serializeMetadataValue(definition.evaluate(context)));
     return;
   }
 
