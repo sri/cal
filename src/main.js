@@ -22,6 +22,10 @@ const MONTH_NAMES = [
 const MONTHS_PER_ROW = 3;
 const DAY_NAMES = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const WEEKS_PER_MONTH = 6;
+const MS_PER_SECOND = 1000;
+const MS_PER_MINUTE = 60 * MS_PER_SECOND;
+const MS_PER_HOUR = 60 * MS_PER_MINUTE;
+const MS_PER_DAY = 24 * MS_PER_HOUR;
 const TODAY = new Date();
 const CURRENT_YEAR = TODAY.getFullYear();
 const CURRENT_MONTH = TODAY.getMonth();
@@ -61,6 +65,141 @@ const SELECTION_COLORS = [
 ];
 const ONE_MONTH_MAX_WIDTH = 359;
 const TWO_MONTH_MAX_WIDTH = 899;
+const SELECTION_METADATA_FUNCTIONS = [
+  {
+    key: "daysSince",
+    evaluate(context) {
+      const referenceDate = context.endDate;
+
+      if (referenceDate > context.todayDate) {
+        return null;
+      }
+
+      return getWholeDayDifference(context.todayDate, referenceDate);
+    }
+  },
+  {
+    key: "daysRemaining",
+    evaluate(context) {
+      const referenceDate = context.isActive && !context.isSingleDay ? context.endDate : context.startDate;
+
+      if (referenceDate < context.todayDate) {
+        return null;
+      }
+
+      return getWholeDayDifference(referenceDate, context.todayDate);
+    }
+  },
+  {
+    key: "durationDays",
+    evaluate(context) {
+      return context.durationDays;
+    }
+  },
+  {
+    key: "durationHours",
+    evaluate(context) {
+      return context.durationHours;
+    }
+  },
+  {
+    key: "durationMinutes",
+    evaluate(context) {
+      return context.durationMinutes;
+    }
+  },
+  {
+    key: "durationSeconds",
+    evaluate(context) {
+      return context.durationSeconds;
+    }
+  },
+  {
+    key: "durationWeeks",
+    evaluate(context) {
+      return Number(context.durationWeeks.toFixed(2));
+    }
+  },
+  {
+    key: "daysSinceStart",
+    evaluate(context) {
+      if (context.startDate > context.todayDate) {
+        return null;
+      }
+
+      return getWholeDayDifference(context.todayDate, context.startDate);
+    }
+  },
+  {
+    key: "daysSinceEnd",
+    evaluate(context) {
+      if (context.endDate > context.todayDate) {
+        return null;
+      }
+
+      return getWholeDayDifference(context.todayDate, context.endDate);
+    }
+  },
+  {
+    key: "daysUntilStart",
+    evaluate(context) {
+      if (context.startDate < context.todayDate) {
+        return null;
+      }
+
+      return getWholeDayDifference(context.startDate, context.todayDate);
+    }
+  },
+  {
+    key: "daysUntilEnd",
+    evaluate(context) {
+      if (context.endDate < context.todayDate) {
+        return null;
+      }
+
+      return getWholeDayDifference(context.endDate, context.todayDate);
+    }
+  },
+  {
+    key: "isPast",
+    evaluate(context) {
+      return context.isPast;
+    }
+  },
+  {
+    key: "isFuture",
+    evaluate(context) {
+      return context.isFuture;
+    }
+  },
+  {
+    key: "isActive",
+    evaluate(context) {
+      return context.isActive;
+    }
+  },
+  {
+    key: "containsToday",
+    evaluate(context) {
+      return context.containsToday;
+    }
+  },
+  {
+    key: "dayOfYearStart",
+    evaluate(context) {
+      return getDayOfYear(context.startDate);
+    }
+  },
+  {
+    key: "weekdayStart",
+    evaluate(context) {
+      return context.weekdayStart;
+    }
+  }
+];
+const SELECTION_METADATA_FUNCTIONS_BY_KEY = Object.fromEntries(
+  SELECTION_METADATA_FUNCTIONS.map((definition) => [definition.key, definition])
+);
 
 let activeSelectionId = 0;
 let displayYear = 2026;
@@ -145,7 +284,10 @@ function createSelection(id, labelNumber = id + 1, colorIndex = takeColorIndex(i
     colorIndex,
     start: null,
     end: null,
-    name: ""
+    name: "",
+    metadataFunctionKeys: [],
+    metadataDraft: "",
+    hiddenMetadataFunctionKeys: []
   };
 }
 
@@ -183,8 +325,11 @@ function compareIsoDates(left, right) {
 }
 
 function getDaySpan(startDate, endDate) {
-  const msPerDay = 24 * 60 * 60 * 1000;
-  return Math.floor((endDate - startDate) / msPerDay) + 1;
+  return Math.floor((endDate - startDate) / MS_PER_DAY) + 1;
+}
+
+function getWholeDayDifference(laterDate, earlierDate) {
+  return Math.floor((laterDate - earlierDate) / MS_PER_DAY);
 }
 
 function formatSelectionValue(selection) {
@@ -202,9 +347,8 @@ function formatSelectionValue(selection) {
 
   const startText = sameYearAsToday ? SHORT_MONTH_DAY_FORMATTER.format(startDate) : SHORT_MONTH_DAY_YEAR_FORMATTER.format(startDate);
   const endText = sameYearAsToday ? SHORT_MONTH_DAY_FORMATTER.format(endDate) : SHORT_MONTH_DAY_YEAR_FORMATTER.format(endDate);
-  const daySpan = getDaySpan(startDate, endDate);
 
-  return `${startText}-${endText} (${daySpan})`;
+  return `${startText}-${endText}`;
 }
 
 function formatSelectionEditorValue(selection) {
@@ -303,6 +447,111 @@ function updateSelection(selection, isoDate) {
   return "single";
 }
 
+function deriveSelectionContext(selection) {
+  if (!selection.start || !selection.end) {
+    return null;
+  }
+
+  const startDate = parseIsoDate(selection.start);
+  const endDate = parseIsoDate(selection.end);
+  const todayDate = new Date(CURRENT_YEAR, CURRENT_MONTH, CURRENT_DAY);
+  const durationDays = getDaySpan(startDate, endDate);
+
+  return {
+    selection,
+    startDate,
+    endDate,
+    todayDate,
+    isSingleDay: selection.start === selection.end,
+    isFuture: startDate > todayDate,
+    isPast: endDate < todayDate,
+    isActive: startDate <= todayDate && endDate >= todayDate,
+    containsToday: startDate <= todayDate && endDate >= todayDate,
+    durationDays,
+    durationHours: durationDays * 24,
+    durationMinutes: durationDays * 24 * 60,
+    durationSeconds: durationDays * 24 * 60 * 60,
+    durationWeeks: durationDays / 7,
+    weekdayStart: DAY_NAMES[startDate.getDay()]
+  };
+}
+
+function getAutomaticMetadataFunctionKeys(context) {
+  const defaultKeys = ["durationDays"];
+
+  if (context.isFuture) {
+    return [...defaultKeys, "daysRemaining"];
+  }
+
+  if (context.isPast || context.isSingleDay) {
+    return [...defaultKeys, "daysSince"];
+  }
+
+  if (context.isActive) {
+    return [...defaultKeys, "daysRemaining"];
+  }
+
+  return defaultKeys;
+}
+
+function resolveMetadataFunctionKey(value) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const matchingDefinition = SELECTION_METADATA_FUNCTIONS.find((definition) => {
+    return definition.key.toLowerCase() === trimmedValue.toLowerCase()
+      || humanizeFunctionKey(definition.key).toLowerCase() === trimmedValue.toLowerCase();
+  });
+
+  return matchingDefinition ? matchingDefinition.key : null;
+}
+
+function addMetadataFunctionToSelection(selectionId, rawValue) {
+  const selection = selections[selectionId];
+
+  if (!selection) {
+    return false;
+  }
+
+  const functionKey = resolveMetadataFunctionKey(rawValue);
+
+  if (!functionKey) {
+    selection.metadataDraft = rawValue;
+    return false;
+  }
+
+  if (!selection.metadataFunctionKeys.includes(functionKey)) {
+    selection.metadataFunctionKeys.push(functionKey);
+  }
+
+  selection.hiddenMetadataFunctionKeys = selection.hiddenMetadataFunctionKeys.filter((key) => key !== functionKey);
+  selection.metadataDraft = "";
+  return true;
+}
+
+function removeMetadataFunctionFromSelection(selectionId, functionKey) {
+  const selection = selections[selectionId];
+
+  if (!selection) {
+    return;
+  }
+
+  selection.metadataFunctionKeys = selection.metadataFunctionKeys.filter((key) => key !== functionKey);
+
+  if (!selection.hiddenMetadataFunctionKeys.includes(functionKey)) {
+    selection.hiddenMetadataFunctionKeys.push(functionKey);
+  }
+}
+
+function humanizeFunctionKey(functionKey) {
+  return functionKey
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/^./, (letter) => letter.toUpperCase());
+}
+
 function buildSelectionNameControl(selection) {
   if (!selection.start) {
     return "";
@@ -365,6 +614,141 @@ function commitSelectionName(selectionId, value) {
   selection.name = value.trim();
 }
 
+function buildSelectionMetadata(selection) {
+  const context = deriveSelectionContext(selection);
+
+  if (!context) {
+    return "";
+  }
+
+  const automaticKeys = getAutomaticMetadataFunctionKeys(context);
+  const renderedKeys = new Set();
+  const metadataLines = [];
+
+  for (const functionKey of [...automaticKeys, ...selection.metadataFunctionKeys]) {
+    if (renderedKeys.has(functionKey)) {
+      continue;
+    }
+
+    renderedKeys.add(functionKey);
+
+    const definition = SELECTION_METADATA_FUNCTIONS_BY_KEY[functionKey];
+
+    if (!definition) {
+      continue;
+    }
+
+    if (selection.hiddenMetadataFunctionKeys.includes(functionKey)) {
+      continue;
+    }
+
+    const value = definition.evaluate(context);
+    const valueText = value === null ? "n/a" : String(value);
+
+    metadataLines.push(`
+      <tr>
+        <td>${escapeHtml(humanizeFunctionKey(definition.key))}</td>
+        <td>${escapeHtml(valueText)}</td>
+        <td align="right">
+          <button type="button" data-selection-function-remove="${selection.id}" data-selection-function-key="${definition.key}" aria-label="Remove ${humanizeFunctionKey(definition.key)}">✕</button>
+        </td>
+      </tr>
+    `);
+  }
+
+  return `
+    <div style="border-top: 1px solid rgba(0, 0, 0, 0.2); margin-top: 6px; padding-top: 6px;">
+      <table width="100%" cellpadding="3" cellspacing="0" border="0">
+        <thead>
+          <tr>
+            <th align="left">Function</th>
+            <th align="left">Value</th>
+            <th align="right">Remove</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${metadataLines.join("")}
+          <tr>
+            <td colspan="3" style="padding-top: 4px;">
+              <input
+                type="text"
+                list="selection-function-options"
+                data-selection-function-input="${selection.id}"
+                value="${escapeHtml(selection.metadataDraft || "")}"
+                placeholder="function"
+                aria-label="Function for ${selection.label}"
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function buildSelectionContent(selection) {
+  const isEditing = selection.id === editingSelectionId;
+  const value = formatSelectionValue(selection);
+  const isRangeSelection = Boolean(selection.start && selection.end && selection.start !== selection.end);
+  const primaryAction = isRangeSelection ? "edit" : "done";
+  const primaryIcon = isRangeSelection ? "✎" : "✓";
+  const actions = selection.start
+    ? `
+        <td style="padding-right: 8px;" width="240">
+          ${buildSelectionNameControl(selection)}
+        </td>
+        <td align="right">
+          <button type="button" data-selection-action="${primaryAction}" data-selection-id="${selection.id}" aria-label="${primaryAction === "edit" ? `Edit ${selection.label}` : `Done with ${selection.label}`}">${primaryIcon}</button>
+          <button type="button" data-selection-action="delete" data-selection-id="${selection.id}" aria-label="Delete ${selection.label}">✕</button>
+        </td>
+      `
+    : "<td></td>";
+  const selectionTrigger = isEditing
+    ? `
+        <input
+          type="text"
+          data-selection-editor="${selection.id}"
+          value="${formatSelectionEditorValue(selection)}"
+          placeholder="MON DD, YYYY - MON DD, YYYY"
+          aria-label="Edit ${selection.label}"
+        />
+      `
+    : `
+        <a href="#" data-selection-id="${selection.id}">
+          ${selection.id + 1}. ${value}
+        </a>
+      `;
+  const metadata = buildSelectionMetadata(selection);
+
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td>
+          ${selectionTrigger}
+        </td>
+        ${actions}
+      </tr>
+      ${metadata
+        ? `
+            <tr>
+              <td colspan="${selection.start ? 3 : 2}">
+                ${metadata}
+              </td>
+            </tr>
+          `
+        : ""}
+    </table>
+  `;
+}
+
+function buildSelectionFunctionOptions() {
+  const options = SELECTION_METADATA_FUNCTIONS.map((definition) => {
+    return `<option value="${humanizeFunctionKey(definition.key)}"></option>`;
+  }).join("");
+
+  return `<datalist id="selection-function-options">${options}</datalist>`;
+}
+
 function buildSelectionPanel(monthsPerRow) {
   const rows = [];
   const toggleLabel = selectionsCollapsed ? "▸" : "▾";
@@ -382,11 +766,6 @@ function buildSelectionPanel(monthsPerRow) {
 
   for (const selection of selections) {
     const isActive = selection.id === activeSelectionId;
-    const isEditing = selection.id === editingSelectionId;
-    const value = formatSelectionValue(selection);
-    const isRangeSelection = Boolean(selection.start && selection.end && selection.start !== selection.end);
-    const primaryAction = isRangeSelection ? "edit" : "done";
-    const primaryIcon = isRangeSelection ? "✎" : "✓";
     const rowStyle = [
       "width: 100%;",
       "border: 1px solid #000;",
@@ -394,50 +773,12 @@ function buildSelectionPanel(monthsPerRow) {
       "padding: 4px 6px;",
       isActive ? `box-shadow: inset 0 0 0 2px ${selection.border};` : ""
     ].join(" ");
-    const actions = selection.start
-      ? `
-          <td style="padding-right: 8px;" width="240">
-            ${buildSelectionNameControl(selection)}
-          </td>
-          <td align="right">
-            <button type="button" data-selection-action="${primaryAction}" data-selection-id="${selection.id}" aria-label="${primaryAction === "edit" ? `Edit ${selection.label}` : `Done with ${selection.label}`}">${primaryIcon}</button>
-            <button type="button" data-selection-action="delete" data-selection-id="${selection.id}" aria-label="Delete ${selection.label}">✕</button>
-          </td>
-        `
-      : "<td></td>"
-    ;
-    const selectionTrigger = isEditing
-      ? `
-          <input
-            type="text"
-            data-selection-editor="${selection.id}"
-            value="${formatSelectionEditorValue(selection)}"
-            placeholder="MON DD, YYYY - MON DD, YYYY"
-            aria-label="Edit ${selection.label}"
-          />
-        `
-      : `
-          <a href="#" data-selection-id="${selection.id}">
-            ${selection.id + 1}. ${value}
-          </a>
-        `
-    ;
-    const content = `
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td>
-            ${selectionTrigger}
-          </td>
-          ${actions}
-        </tr>
-      </table>
-    `;
 
     rows.push(`
       <tr>
         <td colspan="${monthsPerRow}" style="padding-top: 6px;">
           <div data-selection-id="${selection.id}" style="${rowStyle} cursor: pointer;">
-            ${content}
+            ${buildSelectionContent(selection)}
           </div>
         </td>
       </tr>
@@ -470,11 +811,6 @@ function buildSelectionRows(monthsPerRow) {
 
   for (const selection of selections) {
     const isActive = selection.id === activeSelectionId;
-    const isEditing = selection.id === editingSelectionId;
-    const value = formatSelectionValue(selection);
-    const isRangeSelection = Boolean(selection.start && selection.end && selection.start !== selection.end);
-    const primaryAction = isRangeSelection ? "edit" : "done";
-    const primaryIcon = isRangeSelection ? "✎" : "✓";
     const rowStyle = [
       "width: 100%;",
       "border: 1px solid #000;",
@@ -482,45 +818,12 @@ function buildSelectionRows(monthsPerRow) {
       "padding: 4px 6px;",
       isActive ? `box-shadow: inset 0 0 0 2px ${selection.border};` : ""
     ].join(" ");
-    const actions = selection.start
-      ? `
-          <td style="padding-right: 8px;" width="240">
-            ${buildSelectionNameControl(selection)}
-          </td>
-          <td align="right">
-            <button type="button" data-selection-action="${primaryAction}" data-selection-id="${selection.id}" aria-label="${primaryAction === "edit" ? `Edit ${selection.label}` : `Done with ${selection.label}`}">${primaryIcon}</button>
-            <button type="button" data-selection-action="delete" data-selection-id="${selection.id}" aria-label="Delete ${selection.label}">✕</button>
-          </td>
-        `
-      : "<td></td>";
-    const selectionTrigger = isEditing
-      ? `
-          <input
-            type="text"
-            data-selection-editor="${selection.id}"
-            value="${formatSelectionEditorValue(selection)}"
-            placeholder="MON DD, YYYY - MON DD, YYYY"
-            aria-label="Edit ${selection.label}"
-          />
-        `
-      : `
-          <a href="#" data-selection-id="${selection.id}">
-            ${selection.id + 1}. ${value}
-          </a>
-        `;
 
     rows.push(`
       <tr>
         <td colspan="${monthsPerRow}" style="padding-top: 6px;">
           <div data-selection-id="${selection.id}" style="${rowStyle} cursor: pointer;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td>
-                  ${selectionTrigger}
-                </td>
-                ${actions}
-              </tr>
-            </table>
+            ${buildSelectionContent(selection)}
           </div>
         </td>
       </tr>
@@ -751,7 +1054,7 @@ function updateSelectionUi() {
 }
 
 function render() {
-  app.innerHTML = buildYearTable(displayYear);
+  app.innerHTML = `${buildYearTable(displayYear)}${buildSelectionFunctionOptions()}`;
 
   if (isEditingYear) {
     const yearInput = app.querySelector("[data-year-editor='true']");
@@ -871,6 +1174,8 @@ app.addEventListener("click", (event) => {
   const selectionEditorTarget = target.closest("[data-selection-editor]");
   const selectionNameTarget = target.closest("[data-selection-name]");
   const selectionNameLinkTarget = target.closest("[data-selection-name-link]");
+  const selectionFunctionInputTarget = target.closest("[data-selection-function-input]");
+  const selectionFunctionRemoveTarget = target.closest("[data-selection-function-remove]");
 
   if (selectionTarget instanceof HTMLAnchorElement) {
     event.preventDefault();
@@ -881,6 +1186,24 @@ app.addEventListener("click", (event) => {
   }
 
   if (selectionNameTarget instanceof HTMLInputElement) {
+    return;
+  }
+
+  if (selectionFunctionInputTarget instanceof HTMLInputElement) {
+    return;
+  }
+
+  if (selectionFunctionRemoveTarget instanceof HTMLButtonElement) {
+    const selectionId = Number(selectionFunctionRemoveTarget.dataset.selectionFunctionRemove);
+    const functionKey = selectionFunctionRemoveTarget.dataset.selectionFunctionKey;
+
+    if (!functionKey) {
+      return;
+    }
+
+    activeSelectionId = selectionId;
+    removeMetadataFunctionFromSelection(selectionId, functionKey);
+    render();
     return;
   }
 
@@ -1070,6 +1393,29 @@ app.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (target instanceof HTMLInputElement && target.dataset.selectionFunctionInput !== undefined) {
+    if (event.key === "Escape") {
+      const selection = selections[Number(target.dataset.selectionFunctionInput)];
+
+      if (selection) {
+        selection.metadataDraft = "";
+      }
+
+      render();
+      return;
+    }
+
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    if (addMetadataFunctionToSelection(Number(target.dataset.selectionFunctionInput), target.value)) {
+      render();
+    }
+
+    return;
+  }
+
   if (!(target instanceof HTMLInputElement) || target.dataset.selectionEditor === undefined) {
     return;
   }
@@ -1136,18 +1482,46 @@ app.addEventListener("blur", (event) => {
 app.addEventListener("input", (event) => {
   const target = event.target;
 
-  if (!(target instanceof HTMLInputElement) || target.dataset.selectionName === undefined) {
+  if (!(target instanceof HTMLInputElement)) {
     return;
   }
 
-  const selectionId = Number(target.dataset.selectionName);
+  if (target.dataset.selectionName !== undefined) {
+    const selectionId = Number(target.dataset.selectionName);
+    const selection = selections[selectionId];
+
+    if (!selection) {
+      return;
+    }
+
+    selection.name = target.value;
+    return;
+  }
+
+  if (target.dataset.selectionFunctionInput === undefined) {
+    return;
+  }
+
+  const selectionId = Number(target.dataset.selectionFunctionInput);
   const selection = selections[selectionId];
 
   if (!selection) {
     return;
   }
 
-  selection.name = target.value;
+  selection.metadataDraft = target.value;
+});
+
+app.addEventListener("change", (event) => {
+  const target = event.target;
+
+  if (!(target instanceof HTMLInputElement) || target.dataset.selectionFunctionInput === undefined) {
+    return;
+  }
+
+  if (addMetadataFunctionToSelection(Number(target.dataset.selectionFunctionInput), target.value)) {
+    render();
+  }
 });
 
 app.addEventListener("mouseover", (event) => {
