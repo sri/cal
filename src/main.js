@@ -214,6 +214,9 @@ const SELECTION_METADATA_FUNCTIONS = [
 const SELECTION_METADATA_FUNCTIONS_BY_KEY = Object.fromEntries(
   SELECTION_METADATA_FUNCTIONS.map((definition) => [definition.key, definition])
 );
+const SORTED_SELECTION_METADATA_FUNCTIONS = [...SELECTION_METADATA_FUNCTIONS].sort((left, right) => {
+  return humanizeFunctionKey(left.key).localeCompare(humanizeFunctionKey(right.key));
+});
 
 let activeSelectionId = 0;
 let displayYear = 2026;
@@ -624,6 +627,10 @@ function serializeMetadataValue(value) {
   return String(value);
 }
 
+function serializeMetadataCopyText(functionKey, value) {
+  return `${humanizeFunctionKey(functionKey)}:\n${serializeMetadataValue(value)}`;
+}
+
 function renderMetadataValue(value) {
   if (Array.isArray(value)) {
     return value.map((entry) => `<div style="font-family: ${MONOSPACE_FONT_STACK};">${escapeHtml(String(entry))}</div>`).join("");
@@ -723,29 +730,21 @@ function buildSelectionMetadata(selection) {
   }
 
   const automaticKeys = getAutomaticMetadataFunctionKeys(context);
-  const renderedKeys = new Set();
+  const visibleFunctionKeys = [...new Set([...automaticKeys, ...selection.metadataFunctionKeys])]
+    .filter((functionKey) => !selection.hiddenMetadataFunctionKeys.includes(functionKey))
+    .sort((left, right) => humanizeFunctionKey(left).localeCompare(humanizeFunctionKey(right)));
   const metadataLines = [];
 
-  for (const functionKey of [...automaticKeys, ...selection.metadataFunctionKeys]) {
-    if (renderedKeys.has(functionKey)) {
-      continue;
-    }
-
-    renderedKeys.add(functionKey);
-
+  for (const functionKey of visibleFunctionKeys) {
     const definition = SELECTION_METADATA_FUNCTIONS_BY_KEY[functionKey];
 
     if (!definition) {
       continue;
     }
 
-    if (selection.hiddenMetadataFunctionKeys.includes(functionKey)) {
-      continue;
-    }
-
     const value = definition.evaluate(context);
     const valueMarkup = renderMetadataValue(value);
-    const copyValue = escapeHtml(serializeMetadataValue(value));
+    const copyValue = escapeHtml(serializeMetadataCopyText(definition.key, value));
 
     metadataLines.push(`
       <tr>
@@ -838,7 +837,7 @@ function buildSelectionContent(selection) {
 }
 
 function buildSelectionFunctionOptions() {
-  const options = SELECTION_METADATA_FUNCTIONS.map((definition) => {
+  const options = SORTED_SELECTION_METADATA_FUNCTIONS.map((definition) => {
     return `<option value="${humanizeFunctionKey(definition.key)}"></option>`;
   }).join("");
 
@@ -1306,7 +1305,7 @@ app.addEventListener("click", (event) => {
       return;
     }
 
-    void copyTextValue(serializeMetadataValue(definition.evaluate(context)));
+    void copyTextValue(serializeMetadataCopyText(functionKey, definition.evaluate(context)));
     return;
   }
 
