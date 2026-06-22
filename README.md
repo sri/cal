@@ -11,7 +11,7 @@ Live site: [https://sri.github.io/cal/](https://sri.github.io/cal/)
 - Per-selection metadata functions such as duration, days since, days remaining, anniversary, and live counters
 - Function-specific UI arguments, currently including anniversary `From` / `To` year controls
 - Copy actions for metadata values
-- Session-backed persistence with `sessionStorage`, so selections and selected functions survive page reloads in the current browser session
+- Browser-backed persistence with `localStorage`, so selections and selected functions survive page reloads and browser restarts
 
 ## Run locally
 
@@ -23,7 +23,7 @@ npm run dev
 ## Notes
 
 - Built with plain JavaScript and Vite
-- Selection state is stored in browser `sessionStorage`
+- Selection state is stored in browser `localStorage`
 
 ## Screenshot
 

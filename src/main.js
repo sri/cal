@@ -74,7 +74,7 @@ const ONE_MONTH_MAX_WIDTH = 359;
 const TWO_MONTH_MAX_WIDTH = 899;
 const YEAR_OPTION_MIN = CURRENT_YEAR - 100;
 const YEAR_OPTION_MAX = CURRENT_YEAR + 100;
-const SESSION_STORAGE_KEY = "multical-session-state";
+const LOCAL_STORAGE_KEY = "multical-local-state";
 const SELECTION_METADATA_FUNCTIONS = [
   {
     key: "daysSince",
@@ -425,15 +425,15 @@ function saveSessionState() {
       selections: selections.map(serializeSelection)
     };
 
-    window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextState));
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState));
   } catch {
-    // Ignore session storage failures and keep the app usable.
+    // Ignore storage failures and keep the app usable.
   }
 }
 
 function loadSessionState() {
   try {
-    const rawState = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const rawState = window.localStorage.getItem(LOCAL_STORAGE_KEY);
 
     if (!rawState) {
       rebuildAvailableColorIndices();
@@ -456,6 +456,13 @@ function loadSessionState() {
     selectionsCollapsed = typeof parsedState?.selectionsCollapsed === "boolean" ? parsedState.selectionsCollapsed : selectionsCollapsed;
 
     normalizeSelections();
+
+    const activeSelection = selections[activeSelectionId];
+
+    if (!activeSelection || activeSelection.start) {
+      const nextSelection = getOrCreateNextSelection();
+      activeSelectionId = nextSelection.id;
+    }
   } catch {
     selections = [createSelection(0)];
     rebuildAvailableColorIndices();
