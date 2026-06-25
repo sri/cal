@@ -1076,14 +1076,14 @@ function buildSelectionMetadata(selection) {
         <tbody>
           ${metadataLines.join("")}
           <tr>
-            <td colspan="3" style="padding-top: 4px;">
+            <td colspan="3" style="padding-top: 8px; border-top: 1px solid rgba(0, 0, 0, 0.2); text-align: center;">
               <input
                 type="text"
                 list="selection-function-options"
                 data-selection-function-input="${selection.id}"
                 value="${escapeHtml(selection.metadataDraft || "")}"
-                placeholder="function"
-                aria-label="Function for ${selection.label}"
+                placeholder="Select Date Info"
+                aria-label="Select Date Info for ${selection.label}"
               />
             </td>
           </tr>
