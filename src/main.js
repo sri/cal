@@ -31,8 +31,6 @@ const TODAY = new Date();
 const CURRENT_YEAR = TODAY.getFullYear();
 const CURRENT_MONTH = TODAY.getMonth();
 const CURRENT_DAY = TODAY.getDate();
-const HIGHLIGHT_STYLE = "border: 1px solid #000; background: #fff9c4;";
-const HOVER_STYLE = "background: #f3f3f3;";
 const FULL_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "long",
   day: "numeric",
@@ -58,18 +56,117 @@ const ANNIVERSARY_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric"
 });
-const SELECTION_COLORS = [
-  { color: "#dbeafe", border: "#2563eb" },
-  { color: "#dcfce7", border: "#16a34a" },
-  { color: "#fef3c7", border: "#d97706" },
-  { color: "#fce7f3", border: "#db2777" },
-  { color: "#e9d5ff", border: "#7c3aed" },
-  { color: "#cffafe", border: "#0891b2" },
-  { color: "#d1fae5", border: "#059669" },
-  { color: "#fee2e2", border: "#dc2626" },
-  { color: "#fef08a", border: "#ca8a04" },
-  { color: "#dbe4ff", border: "#4338ca" }
+const PASTEL_SELECTION_COLORS = [
+  { color: "#c7f9cc", border: "#2f855a", text: "#102418" },
+  { color: "#bfdbfe", border: "#2563eb", text: "#102139" },
+  { color: "#fde68a", border: "#d97706", text: "#35210c" },
+  { color: "#fbcfe8", border: "#db2777", text: "#3d1027" },
+  { color: "#ddd6fe", border: "#7c3aed", text: "#24103f" },
+  { color: "#bae6fd", border: "#0891b2", text: "#072c38" },
+  { color: "#fecdd3", border: "#e11d48", text: "#3a1020" },
+  { color: "#ccfbf1", border: "#0f766e", text: "#092725" },
+  { color: "#fde68a", border: "#ca8a04", text: "#35290b" },
+  { color: "#e9d5ff", border: "#6d28d9", text: "#23103c" }
 ];
+const DEFAULT_THEME_KEY = "dark";
+const THEMES = {
+  dark: {
+    label: "Dark",
+    colorScheme: "dark",
+    pageBackground: "radial-gradient(circle at top, #283244 0%, #111827 48%, #020617 100%)",
+    surface: "rgba(15, 23, 42, 0.86)",
+    frameBorder: "#334155",
+    frameShadow: "0 22px 60px rgba(2, 6, 23, 0.52)",
+    textColor: "#e2e8f0",
+    mutedText: "#94a3b8",
+    linkColor: "#cbd5e1",
+    headerText: "#f8fafc",
+    borderColor: "#475569",
+    subtleBorder: "rgba(148, 163, 184, 0.28)",
+    controlBackground: "rgba(15, 23, 42, 0.78)",
+    controlText: "#f8fafc",
+    controlBorder: "#64748b",
+    accentBorder: "#a5b4fc",
+    focusRing: "#c4b5fd",
+    monthBackground: "rgba(15, 23, 42, 0.68)",
+    panelShadow: "0 10px 28px rgba(15, 23, 42, 0.32)",
+    currentMonthSurface: "rgba(30, 41, 59, 0.92)",
+    currentMonthShadow: "inset 0 0 0 1px rgba(196, 181, 253, 0.7), 0 10px 28px rgba(15, 23, 42, 0.32)",
+    todayBackground: "#f8fafc",
+    todayBorder: "#cbd5f5",
+    todayText: "#0f172a",
+    hoverBackground: "rgba(148, 163, 184, 0.2)",
+    settingsSurface: "rgba(15, 23, 42, 0.97)",
+    settingsShadow: "0 24px 48px rgba(2, 6, 23, 0.52)",
+    settingsOptionHover: "rgba(148, 163, 184, 0.16)",
+    settingsOptionActive: "rgba(165, 180, 252, 0.18)",
+    selectionColors: PASTEL_SELECTION_COLORS
+  },
+  matrix: {
+    label: "Matrix",
+    colorScheme: "dark",
+    pageBackground: "radial-gradient(circle at top, #14341f 0%, #05130b 50%, #010503 100%)",
+    surface: "rgba(4, 15, 9, 0.88)",
+    frameBorder: "#1f5135",
+    frameShadow: "0 22px 60px rgba(0, 0, 0, 0.58)",
+    textColor: "#b7f7c9",
+    mutedText: "#7bd990",
+    linkColor: "#d9ffd7",
+    headerText: "#ecffeb",
+    borderColor: "#2a6a45",
+    subtleBorder: "rgba(123, 217, 144, 0.28)",
+    controlBackground: "rgba(7, 27, 16, 0.9)",
+    controlText: "#eaffea",
+    controlBorder: "#35a15a",
+    accentBorder: "#86efac",
+    focusRing: "#bbf7d0",
+    monthBackground: "rgba(8, 23, 14, 0.72)",
+    panelShadow: "0 10px 28px rgba(0, 0, 0, 0.35)",
+    currentMonthSurface: "rgba(12, 34, 20, 0.94)",
+    currentMonthShadow: "inset 0 0 0 1px rgba(134, 239, 172, 0.72), 0 10px 28px rgba(0, 0, 0, 0.35)",
+    todayBackground: "#f0fdf4",
+    todayBorder: "#86efac",
+    todayText: "#052e16",
+    hoverBackground: "rgba(134, 239, 172, 0.18)",
+    settingsSurface: "rgba(3, 12, 7, 0.97)",
+    settingsShadow: "0 24px 48px rgba(0, 0, 0, 0.6)",
+    settingsOptionHover: "rgba(134, 239, 172, 0.14)",
+    settingsOptionActive: "rgba(134, 239, 172, 0.2)",
+    selectionColors: PASTEL_SELECTION_COLORS
+  },
+  brown: {
+    label: "Brownish",
+    colorScheme: "light",
+    pageBackground: "radial-gradient(circle at top, #f6ead9 0%, #dfc4a5 50%, #9e7758 100%)",
+    surface: "rgba(248, 239, 225, 0.86)",
+    frameBorder: "#8b5e3c",
+    frameShadow: "0 22px 60px rgba(92, 58, 34, 0.24)",
+    textColor: "#4b2e1f",
+    mutedText: "#7c5b42",
+    linkColor: "#5b3927",
+    headerText: "#3f2618",
+    borderColor: "#a77a57",
+    subtleBorder: "rgba(122, 91, 66, 0.28)",
+    controlBackground: "rgba(255, 249, 241, 0.86)",
+    controlText: "#4b2e1f",
+    controlBorder: "#b08968",
+    accentBorder: "#d97706",
+    focusRing: "#f59e0b",
+    monthBackground: "rgba(255, 248, 239, 0.74)",
+    panelShadow: "0 10px 28px rgba(122, 91, 66, 0.18)",
+    currentMonthSurface: "rgba(255, 245, 230, 0.96)",
+    currentMonthShadow: "inset 0 0 0 1px rgba(217, 119, 6, 0.42), 0 10px 28px rgba(122, 91, 66, 0.18)",
+    todayBackground: "#fff7ed",
+    todayBorder: "#f59e0b",
+    todayText: "#78350f",
+    hoverBackground: "rgba(176, 137, 104, 0.18)",
+    settingsSurface: "rgba(255, 247, 236, 0.98)",
+    settingsShadow: "0 24px 48px rgba(92, 58, 34, 0.2)",
+    settingsOptionHover: "rgba(176, 137, 104, 0.12)",
+    settingsOptionActive: "rgba(217, 119, 6, 0.14)",
+    selectionColors: PASTEL_SELECTION_COLORS
+  }
+};
 const ONE_MONTH_MAX_WIDTH = 359;
 const TWO_MONTH_MAX_WIDTH = 899;
 const YEAR_OPTION_MIN = CURRENT_YEAR - 100;
@@ -278,15 +375,17 @@ const SORTED_SELECTION_METADATA_FUNCTIONS = [...SELECTION_METADATA_FUNCTIONS].so
 });
 
 let activeSelectionId = 0;
+let activeThemeKey = DEFAULT_THEME_KEY;
 let displayYear = 2026;
 let nextSelectionNumber = 2;
 let editingSelectionId = null;
 let editingNameSelectionId = null;
 let isEditingYear = false;
+let settingsOpen = false;
 let selectionsCollapsed = true;
 let shouldFocusSelectionEditor = false;
 let shouldFocusSelectionNameEditor = false;
-let availableColorIndices = SELECTION_COLORS.map((_, index) => index).slice(1);
+let availableColorIndices = THEMES[DEFAULT_THEME_KEY].selectionColors.map((_, index) => index).slice(1);
 let selections = [createSelection(0)];
 
 function getMonthsPerRow() {
@@ -310,6 +409,45 @@ function getMonthsPerRow() {
 
 function useStackedHeader() {
   return window.innerHeight >= window.innerWidth && window.innerWidth <= TWO_MONTH_MAX_WIDTH;
+}
+
+function getCurrentTheme() {
+  return THEMES[activeThemeKey] ?? THEMES[DEFAULT_THEME_KEY];
+}
+
+function getSelectionPaletteCount() {
+  return getCurrentTheme().selectionColors.length;
+}
+
+function getSelectionPalette(colorIndex) {
+  const theme = getCurrentTheme();
+  const palette = theme.selectionColors[colorIndex] ?? theme.selectionColors[0];
+
+  return palette;
+}
+
+function assignSelectionPalette(selection) {
+  const palette = getSelectionPalette(selection.colorIndex);
+
+  selection.color = palette.color;
+  selection.border = palette.border;
+  selection.text = palette.text;
+}
+
+function syncSelectionColors() {
+  for (const selection of selections) {
+    assignSelectionPalette(selection);
+  }
+}
+
+function getTodayHighlightStyle() {
+  const theme = getCurrentTheme();
+
+  return [
+    `border-color: ${theme.todayBorder};`,
+    `background: ${theme.todayBackground};`,
+    `color: ${theme.todayText};`
+  ].join(" ");
 }
 
 function takeColorIndex(preferredIndex) {
@@ -350,13 +488,14 @@ function escapeHtml(value) {
 }
 
 function createSelection(id, labelNumber = id + 1, colorIndex = takeColorIndex(id === 0 ? 0 : undefined)) {
-  const palette = SELECTION_COLORS[colorIndex];
+  const palette = getSelectionPalette(colorIndex);
 
   return {
     id,
     label: `Selection ${labelNumber}`,
     color: palette.color,
     border: palette.border,
+    text: palette.text,
     colorIndex,
     start: null,
     end: null,
@@ -372,10 +511,10 @@ function rebuildAvailableColorIndices() {
   const usedColorIndices = new Set(
     selections
       .map((selection) => selection.colorIndex)
-      .filter((colorIndex) => Number.isInteger(colorIndex) && colorIndex >= 0 && colorIndex < SELECTION_COLORS.length)
+      .filter((colorIndex) => Number.isInteger(colorIndex) && colorIndex >= 0 && colorIndex < getSelectionPaletteCount())
   );
 
-  availableColorIndices = SELECTION_COLORS
+  availableColorIndices = getCurrentTheme().selectionColors
     .map((_, index) => index)
     .filter((index) => index !== 0 && !usedColorIndices.has(index));
 }
@@ -398,18 +537,19 @@ function hydrateSelection(rawSelection, index) {
   const rawColorIndex = rawSelection?.colorIndex;
   let nextColorIndex = 0;
 
-  if (Number.isInteger(rawColorIndex) && rawColorIndex >= 0 && rawColorIndex < SELECTION_COLORS.length) {
+  if (Number.isInteger(rawColorIndex) && rawColorIndex >= 0 && rawColorIndex < getSelectionPaletteCount()) {
     nextColorIndex = rawColorIndex === 0 ? 0 : takeColorIndex(rawColorIndex);
   } else {
     nextColorIndex = index === 0 ? 0 : takeColorIndex();
   }
 
-  const palette = SELECTION_COLORS[nextColorIndex];
+  const palette = getSelectionPalette(nextColorIndex);
   const nextSelection = {
     id: index,
     label: typeof rawSelection?.label === "string" ? rawSelection.label : `Selection ${index + 1}`,
     color: palette.color,
     border: palette.border,
+    text: palette.text,
     colorIndex: nextColorIndex,
     start: typeof rawSelection?.start === "string" ? rawSelection.start : null,
     end: typeof rawSelection?.end === "string" ? rawSelection.end : null,
@@ -439,6 +579,7 @@ function saveSessionState() {
   try {
     const nextState = {
       activeSelectionId,
+      activeThemeKey,
       displayYear,
       nextSelectionNumber,
       selectionsCollapsed,
@@ -457,18 +598,23 @@ function loadSessionState() {
 
     if (!rawState) {
       rebuildAvailableColorIndices();
+      syncSelectionColors();
       return;
     }
 
     const parsedState = JSON.parse(rawState);
     const rawSelections = Array.isArray(parsedState?.selections) ? parsedState.selections : [];
+    activeThemeKey = typeof parsedState?.activeThemeKey === "string" && THEMES[parsedState.activeThemeKey]
+      ? parsedState.activeThemeKey
+      : DEFAULT_THEME_KEY;
 
-    availableColorIndices = SELECTION_COLORS.map((_, index) => index).slice(1);
+    availableColorIndices = getCurrentTheme().selectionColors.map((_, index) => index).slice(1);
     selections = rawSelections.length > 0
       ? rawSelections.map((rawSelection, index) => hydrateSelection(rawSelection, index))
       : [createSelection(0)];
 
     rebuildAvailableColorIndices();
+    syncSelectionColors();
 
     activeSelectionId = Number.isInteger(parsedState?.activeSelectionId) ? parsedState.activeSelectionId : 0;
     displayYear = Number.isInteger(parsedState?.displayYear) ? parsedState.displayYear : displayYear;
@@ -484,8 +630,10 @@ function loadSessionState() {
       activeSelectionId = nextSelection.id;
     }
   } catch {
+    activeThemeKey = DEFAULT_THEME_KEY;
     selections = [createSelection(0)];
     rebuildAvailableColorIndices();
+    syncSelectionColors();
   }
 }
 
@@ -963,6 +1111,242 @@ function buildYearSelectOptions(selectedYear) {
   return options.join("");
 }
 
+function buildThemeStyles() {
+  const theme = getCurrentTheme();
+
+  return `
+    <style>
+      #app {
+        min-height: 100vh;
+        padding: 24px 18px 40px;
+        background: ${theme.pageBackground};
+        color: ${theme.textColor};
+        font-family: ${MONOSPACE_FONT_STACK};
+      }
+
+      #app,
+      #app table,
+      #app th,
+      #app td,
+      #app div,
+      #app span,
+      #app label {
+        color: inherit;
+      }
+
+      #app a {
+        color: ${theme.linkColor};
+        text-decoration: none;
+      }
+
+      #app a:hover {
+        text-decoration: underline;
+      }
+
+      #app button,
+      #app input,
+      #app select {
+        font: inherit;
+        color: ${theme.controlText};
+        background: ${theme.controlBackground};
+        border: 1px solid ${theme.controlBorder};
+        border-radius: 8px;
+        padding: 4px 8px;
+      }
+
+      #app button {
+        cursor: pointer;
+      }
+
+      #app input,
+      #app select {
+        max-width: 100%;
+      }
+
+      #app button:focus-visible,
+      #app input:focus-visible,
+      #app select:focus-visible {
+        outline: 2px solid ${theme.focusRing};
+        outline-offset: 2px;
+      }
+
+      #app [data-calendar-shell] {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 18px;
+        border: 1px solid ${theme.frameBorder};
+        border-radius: 24px;
+        background: ${theme.surface};
+        box-shadow: ${theme.frameShadow};
+        backdrop-filter: blur(14px);
+      }
+
+      #app [data-header-date-link] {
+        color: ${theme.headerText};
+      }
+
+      #app [data-month-table] {
+        width: 100%;
+        border: 1px solid ${theme.borderColor};
+        border-radius: 18px;
+        background: ${theme.monthBackground};
+        box-shadow: ${theme.panelShadow};
+      }
+
+      #app [data-month-table="current"] {
+        background: ${theme.currentMonthSurface};
+        box-shadow: ${theme.currentMonthShadow};
+      }
+
+      #app [data-selection-card] {
+        border: 1px solid rgba(15, 23, 42, 0.14);
+        border-radius: 16px;
+      }
+
+      #app [data-selection-metadata] {
+        border-top: 1px solid rgba(15, 23, 42, 0.14);
+      }
+
+      #app [data-selection-function-picker] {
+        border-top: 1px solid rgba(15, 23, 42, 0.14);
+      }
+
+      #app [data-settings-anchor] {
+        position: relative;
+      }
+
+      #app [data-settings-panel] {
+        position: absolute;
+        top: calc(100% + 10px);
+        right: 0;
+        width: min(260px, 80vw);
+        padding: 12px;
+        border: 1px solid ${theme.borderColor};
+        border-radius: 16px;
+        background: ${theme.settingsSurface};
+        box-shadow: ${theme.settingsShadow};
+        z-index: 20;
+      }
+
+      #app [data-settings-title] {
+        color: ${theme.mutedText};
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      #app [data-theme-options] {
+        display: grid;
+        gap: 6px;
+        padding-top: 8px;
+      }
+
+      #app [data-theme-option-label] {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+
+      #app [data-theme-option-label]:hover {
+        background: ${theme.settingsOptionHover};
+      }
+
+      #app [data-theme-option-label][data-active="true"] {
+        border-color: ${theme.accentBorder};
+        background: ${theme.settingsOptionActive};
+      }
+    </style>
+  `;
+}
+
+function buildSettingsPanel() {
+  const themeOptions = Object.entries(THEMES).map(([themeKey, theme]) => {
+    return `
+      <label data-theme-option-label data-active="${themeKey === activeThemeKey ? "true" : "false"}">
+        <input
+          type="radio"
+          name="app-theme"
+          value="${themeKey}"
+          data-theme-option="${themeKey}"
+          ${themeKey === activeThemeKey ? "checked" : ""}
+        />
+        <span>${theme.label}</span>
+      </label>
+    `;
+  }).join("");
+
+  return `
+    <div data-settings-panel>
+      <div data-settings-title>Themes</div>
+      <div data-theme-options>
+        ${themeOptions}
+      </div>
+    </div>
+  `;
+}
+
+function buildHeaderContent(yearDisplay, metadataText, stackedHeader) {
+  const settingsMarkup = `
+    <div data-settings-anchor>
+      <button type="button" data-settings-toggle="true" aria-label="Open settings">⚙</button>
+      ${settingsOpen ? buildSettingsPanel() : ""}
+    </div>
+  `;
+
+  if (stackedHeader) {
+    return `
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <th align="left">
+            <button type="button" data-year-nav="prev" aria-label="Previous year">&lt;</button>
+            ${yearDisplay}
+            <button type="button" data-year-nav="next" aria-label="Next year">&gt;</button>
+          </th>
+          <th align="right">
+            ${settingsMarkup}
+          </th>
+        </tr>
+        <tr>
+          <th colspan="2" align="center" style="padding-top: 8px;">
+            <a href="#" data-jump-current-year="true" data-header-date-link="true">${metadataText}</a>
+          </th>
+        </tr>
+      </table>
+    `;
+  }
+
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <th align="left" width="33%">
+          <button type="button" data-year-nav="prev" aria-label="Previous year">&lt;</button>
+          ${yearDisplay}
+          <button type="button" data-year-nav="next" aria-label="Next year">&gt;</button>
+        </th>
+        <th align="center" width="34%">
+          <a href="#" data-jump-current-year="true" data-header-date-link="true">${metadataText}</a>
+        </th>
+        <th align="right" width="33%">
+          ${settingsMarkup}
+        </th>
+      </tr>
+    </table>
+  `;
+}
+
+function applyDocumentTheme() {
+  const theme = getCurrentTheme();
+
+  document.documentElement.style.colorScheme = theme.colorScheme;
+  document.body.style.background = theme.pageBackground;
+  document.body.style.color = theme.textColor;
+  document.body.style.fontFamily = MONOSPACE_FONT_STACK;
+}
+
 function buildMetadataArgumentControls(selection, functionKey, args) {
   if (functionKey !== "anniversary") {
     return "";
@@ -1010,7 +1394,7 @@ function buildSelectionNameControl(selection) {
   const nameText = selection.name.trim() || "(no name)";
 
   return `
-    <a href="#" data-selection-name-link="${selection.id}" aria-label="Name ${selection.label}" style="font-family: ${MONOSPACE_FONT_STACK};">
+    <a href="#" data-selection-name-link="${selection.id}" aria-label="Name ${selection.label}" style="font-family: ${MONOSPACE_FONT_STACK}; color: inherit;">
       ${escapeHtml(nameText)}
     </a>
   `;
@@ -1111,13 +1495,13 @@ function buildSelectionMetadata(selection) {
   }
 
   return `
-    <div data-selection-metadata="${selection.id}" style="border-top: 1px solid rgba(0, 0, 0, 0.2); margin-top: 6px; padding-top: 6px;">
+    <div data-selection-metadata="${selection.id}" style="margin-top: 6px; padding-top: 6px;">
       <table width="100%" cellpadding="3" cellspacing="0" border="0">
         <tbody>
           ${metadataLines.join("")}
           <tr>
             <td colspan="3" style="padding-top: 8px;">
-              <div style="padding-top: 8px; border-top: 1px solid rgba(0, 0, 0, 0.2); text-align: center;">
+              <div data-selection-function-picker style="padding-top: 8px; text-align: center;">
                 <select data-selection-function-select="${selection.id}" aria-label="Select Date Info for ${selection.label}">
                   ${buildSelectionFunctionSelectOptions()}
                 </select>
@@ -1158,7 +1542,7 @@ function buildSelectionContent(selection) {
         />
       `
     : `
-        <a href="#" data-selection-id="${selection.id}" style="font-family: ${MONOSPACE_FONT_STACK};">
+        <a href="#" data-selection-id="${selection.id}" style="font-family: ${MONOSPACE_FONT_STACK}; color: inherit;">
           ${selection.id + 1}. ${value}
         </a>
       `;
@@ -1204,8 +1588,8 @@ function buildSelectionPanel(monthsPerRow) {
     const isActive = selection.id === activeSelectionId;
     const rowStyle = [
       "width: 100%;",
-      "border: 1px solid #000;",
       `background: ${selection.color};`,
+      `color: ${selection.text};`,
       "padding: 4px 6px;",
       isActive ? `box-shadow: inset 0 0 0 2px ${selection.border};` : ""
     ].join(" ");
@@ -1213,7 +1597,7 @@ function buildSelectionPanel(monthsPerRow) {
     rows.push(`
       <tr>
         <td colspan="${monthsPerRow}" style="padding-top: 6px;">
-          <div data-selection-id="${selection.id}" style="${rowStyle} cursor: pointer;">
+          <div data-selection-id="${selection.id}" data-selection-card style="${rowStyle} cursor: pointer;">
             ${buildSelectionContent(selection)}
           </div>
         </td>
@@ -1249,8 +1633,8 @@ function buildSelectionRows(monthsPerRow) {
     const isActive = selection.id === activeSelectionId;
     const rowStyle = [
       "width: 100%;",
-      "border: 1px solid #000;",
       `background: ${selection.color};`,
+      `color: ${selection.text};`,
       "padding: 4px 6px;",
       isActive ? `box-shadow: inset 0 0 0 2px ${selection.border};` : ""
     ].join(" ");
@@ -1258,7 +1642,7 @@ function buildSelectionRows(monthsPerRow) {
     rows.push(`
       <tr>
         <td colspan="${monthsPerRow}" style="padding-top: 6px;">
-          <div data-selection-id="${selection.id}" style="${rowStyle} cursor: pointer;">
+          <div data-selection-id="${selection.id}" data-selection-card style="${rowStyle} cursor: pointer;">
             ${buildSelectionContent(selection)}
           </div>
         </td>
@@ -1306,9 +1690,9 @@ function buildMonthTable(year, monthIndex) {
           ];
 
           if (selection) {
-            styles.push(`border-color: ${selection.border};`, `background: ${selection.color};`);
+            styles.push(`border-color: ${selection.border};`, `background: ${selection.color};`, `color: ${selection.text};`);
           } else if (isCurrentDay) {
-            styles.push(HIGHLIGHT_STYLE);
+            styles.push(getTodayHighlightStyle());
           }
 
           return `
@@ -1329,10 +1713,8 @@ function buildMonthTable(year, monthIndex) {
       return `<tr>${cells}</tr>`;
     })
     .join("");
-  const monthStyle = isCurrentMonth ? ` style="${HIGHLIGHT_STYLE}"` : "";
-
   return `
-    <table cellpadding="2" cellspacing="0" border="0"${monthStyle}>
+    <table cellpadding="2" cellspacing="0" border="0" data-month-table="${isCurrentMonth ? "current" : "default"}">
       <thead>
         <tr>
           <th colspan="7" scope="colgroup">${MONTH_NAMES[monthIndex]}</th>
@@ -1370,61 +1752,34 @@ function buildYearTable(year) {
     monthRows.push(`<tr>${monthCells.slice(i, i + monthsPerRow).join("")}</tr>`);
   }
 
-  const headerContent = stackedHeader
-    ? `
-        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-          <tr>
-            <th align="left">
-              <button type="button" data-year-nav="prev" aria-label="Previous year">&lt;</button>
-              ${yearDisplay}
-              <button type="button" data-year-nav="next" aria-label="Next year">&gt;</button>
-            </th>
-          </tr>
-          <tr>
-            <th align="left" style="padding-top: 6px;">
-              <a href="#" data-jump-current-year="true">${metadataText}</a>
-            </th>
-          </tr>
-        </table>
-      `
-    : `
-        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-          <tr>
-            <th align="left">
-              <button type="button" data-year-nav="prev" aria-label="Previous year">&lt;</button>
-              ${yearDisplay}
-              <button type="button" data-year-nav="next" aria-label="Next year">&gt;</button>
-            </th>
-            <th align="right">
-              <a href="#" data-jump-current-year="true">${metadataText}</a>
-            </th>
-          </tr>
-        </table>
-      `;
+  const headerContent = buildHeaderContent(yearDisplay, metadataText, stackedHeader);
 
   return `
-    <table align="center" cellpadding="12" cellspacing="0" border="0"${useMobileLayout ? ` width="100%"` : ""} aria-label="${year} calendar">
-      <thead>
-        <tr>
-          <th
-            colspan="${monthsPerRow}"
-            style="border-bottom: 1px solid #000; padding-bottom: 8px;"
-          >
-            ${headerContent}
-          </th>
-        </tr>
-        ${useMobileLayout
-          ? `
-              <tr>
-                <th colspan="${monthsPerRow}" data-selection-panel>
-                  ${buildSelectionPanel(monthsPerRow)}
-                </th>
-              </tr>
-            `
-          : buildSelectionRows(monthsPerRow)}
-      </thead>
-      <tbody>${monthRows.join("")}</tbody>
-    </table>
+    ${buildThemeStyles()}
+    <div data-calendar-shell>
+      <table align="center" cellpadding="12" cellspacing="0" border="0"${useMobileLayout ? ` width="100%"` : ""} aria-label="${year} calendar">
+        <thead>
+          <tr>
+            <th
+              colspan="${monthsPerRow}"
+              style="border-bottom: 1px solid ${getCurrentTheme().subtleBorder}; padding-bottom: 8px;"
+            >
+              ${headerContent}
+            </th>
+          </tr>
+          ${useMobileLayout
+            ? `
+                <tr>
+                  <th colspan="${monthsPerRow}" data-selection-panel>
+                    ${buildSelectionPanel(monthsPerRow)}
+                  </th>
+                </tr>
+              `
+            : buildSelectionRows(monthsPerRow)}
+        </thead>
+        <tbody>${monthRows.join("")}</tbody>
+      </table>
+    </div>
   `;
 }
 
@@ -1442,9 +1797,9 @@ function getDateButtonStyle(isoDate) {
   ];
 
   if (selection) {
-    styles.push(`border-color: ${selection.border};`, `background: ${selection.color};`);
+    styles.push(`border-color: ${selection.border};`, `background: ${selection.color};`, `color: ${selection.text};`);
   } else if (isCurrentDay) {
-    styles.push(HIGHLIGHT_STYLE);
+    styles.push(getTodayHighlightStyle());
   }
 
   return {
@@ -1521,6 +1876,7 @@ function updateLiveMetadataValues() {
 }
 
 function render() {
+  applyDocumentTheme();
   app.innerHTML = buildYearTable(displayYear);
   updateLiveMetadataValues();
   saveSessionState();
@@ -1579,6 +1935,24 @@ app.addEventListener("click", (event) => {
   const target = event.target;
 
   if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const settingsToggleTarget = target.closest("[data-settings-toggle]");
+  const settingsPanelTarget = target.closest("[data-settings-panel]");
+  const shouldCloseSettings = settingsOpen && !(settingsToggleTarget instanceof HTMLElement) && !(settingsPanelTarget instanceof HTMLElement);
+
+  if (shouldCloseSettings) {
+    settingsOpen = false;
+  }
+
+  if (settingsToggleTarget instanceof HTMLButtonElement) {
+    settingsOpen = !settingsOpen;
+    render();
+    return;
+  }
+
+  if (settingsPanelTarget instanceof HTMLElement) {
     return;
   }
 
@@ -1804,7 +2178,7 @@ app.addEventListener("click", (event) => {
   const isoDate = dateTarget instanceof HTMLElement ? dateTarget.dataset.date : undefined;
 
   if (isoDate) {
-    const shouldPatchOnly = !isEditingYear && displayYear === parseIsoDate(isoDate).getFullYear();
+    const shouldPatchOnly = !shouldCloseSettings && !isEditingYear && displayYear === parseIsoDate(isoDate).getFullYear();
 
     if (selectionsCollapsed) {
       selectionsCollapsed = false;
@@ -1853,6 +2227,12 @@ window.addEventListener("keydown", (event) => {
     || target instanceof HTMLSelectElement
     || target instanceof HTMLTextAreaElement
     || (target instanceof HTMLElement && target.isContentEditable);
+
+  if (event.key === "Escape" && settingsOpen && !isTypingTarget) {
+    settingsOpen = false;
+    render();
+    return;
+  }
 
   if (!isTypingTarget && !event.metaKey && !event.ctrlKey && !event.altKey) {
     if (event.key === "ArrowLeft") {
@@ -2017,6 +2397,20 @@ app.addEventListener("input", (event) => {
 app.addEventListener("change", (event) => {
   const target = event.target;
 
+  if (target instanceof HTMLInputElement && target.dataset.themeOption !== undefined) {
+    const nextThemeKey = target.dataset.themeOption;
+
+    if (!THEMES[nextThemeKey]) {
+      return;
+    }
+
+    activeThemeKey = nextThemeKey;
+    syncSelectionColors();
+    rebuildAvailableColorIndices();
+    render();
+    return;
+  }
+
   if (target instanceof HTMLSelectElement && target.dataset.selectionFunctionSelect !== undefined) {
     const selectionId = Number(target.dataset.selectionFunctionSelect);
 
@@ -2049,7 +2443,7 @@ app.addEventListener("mouseover", (event) => {
     return;
   }
 
-  target.style.cssText += HOVER_STYLE;
+  target.style.background = getCurrentTheme().hoverBackground;
 });
 
 app.addEventListener("mouseout", (event) => {
@@ -2059,7 +2453,8 @@ app.addEventListener("mouseout", (event) => {
     return;
   }
 
-  target.style.background = "transparent";
+  const nextState = getDateButtonStyle(target.dataset.date);
+  target.style.cssText = nextState.styleText;
 });
 
 loadSessionState();
