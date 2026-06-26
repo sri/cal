@@ -78,6 +78,7 @@ const LOCAL_STORAGE_KEY = "multical-local-state";
 const SELECTION_METADATA_FUNCTIONS = [
   {
     key: "daysSince",
+    description: "Days since the selection ended, or since the selected day for a single date.",
     evaluate(context) {
       const referenceDate = context.endDate;
 
@@ -90,6 +91,7 @@ const SELECTION_METADATA_FUNCTIONS = [
   },
   {
     key: "daysRemaining",
+    description: "Days until the selection starts, or until it ends when the range is already active.",
     evaluate(context) {
       const referenceDate = context.isActive && !context.isSingleDay ? context.endDate : context.startDate;
 
@@ -102,36 +104,42 @@ const SELECTION_METADATA_FUNCTIONS = [
   },
   {
     key: "durationDays",
+    description: "Total number of calendar days covered by the selection.",
     evaluate(context) {
       return context.durationDays;
     }
   },
   {
     key: "durationHours",
+    description: "Total duration of the selection measured in hours.",
     evaluate(context) {
       return context.durationHours;
     }
   },
   {
     key: "durationMinutes",
+    description: "Total duration of the selection measured in minutes.",
     evaluate(context) {
       return context.durationMinutes;
     }
   },
   {
     key: "durationSeconds",
+    description: "Total duration of the selection measured in seconds.",
     evaluate(context) {
       return context.durationSeconds;
     }
   },
   {
     key: "durationWeeks",
+    description: "Total duration of the selection measured in weeks.",
     evaluate(context) {
       return Number(context.durationWeeks.toFixed(2));
     }
   },
   {
     key: "daysSinceStart",
+    description: "Days since the starting date of the selection.",
     evaluate(context) {
       if (context.startDate > context.todayDate) {
         return null;
@@ -142,6 +150,7 @@ const SELECTION_METADATA_FUNCTIONS = [
   },
   {
     key: "daysSinceEnd",
+    description: "Days since the ending date of the selection.",
     evaluate(context) {
       if (context.endDate > context.todayDate) {
         return null;
@@ -152,6 +161,7 @@ const SELECTION_METADATA_FUNCTIONS = [
   },
   {
     key: "daysUntilStart",
+    description: "Days remaining until the starting date of the selection.",
     evaluate(context) {
       if (context.startDate < context.todayDate) {
         return null;
@@ -162,6 +172,7 @@ const SELECTION_METADATA_FUNCTIONS = [
   },
   {
     key: "daysUntilEnd",
+    description: "Days remaining until the ending date of the selection.",
     evaluate(context) {
       if (context.endDate < context.todayDate) {
         return null;
@@ -172,24 +183,28 @@ const SELECTION_METADATA_FUNCTIONS = [
   },
   {
     key: "isPast",
+    description: "Whether the full selection is already in the past.",
     evaluate(context) {
       return context.isPast;
     }
   },
   {
     key: "isFuture",
+    description: "Whether the full selection is still in the future.",
     evaluate(context) {
       return context.isFuture;
     }
   },
   {
     key: "isActive",
+    description: "Whether today falls inside the selected range or matches the selected day.",
     evaluate(context) {
       return context.isActive;
     }
   },
   {
     key: "liveCountDown",
+    description: "Live countdown to the selection start, or to the end when an active range is in progress.",
     evaluate(context) {
       const referenceDate = getCountdownReferenceDate(context);
 
@@ -208,6 +223,7 @@ const SELECTION_METADATA_FUNCTIONS = [
   },
   {
     key: "liveCountUp",
+    description: "Live count up since the selection ended, or since the selected day for a single date.",
     evaluate(context) {
       const referenceDate = context.endDate;
       const now = new Date();
@@ -221,24 +237,28 @@ const SELECTION_METADATA_FUNCTIONS = [
   },
   {
     key: "containsToday",
+    description: "Whether today is included anywhere inside the selection.",
     evaluate(context) {
       return context.containsToday;
     }
   },
   {
     key: "dayOfYearStart",
+    description: "Day number within the year for the selection start date.",
     evaluate(context) {
       return getDayOfYear(context.startDate);
     }
   },
   {
     key: "weekdayStart",
+    description: "Weekday for the selection start date.",
     evaluate(context) {
       return context.weekdayStart;
     }
   },
   {
     key: "anniversary",
+    description: "Lists matching anniversary dates, or anniversary ranges, across a selected span of years.",
     getDefaultArgs() {
       return {
         fromYear: CURRENT_YEAR - 10,
@@ -1031,6 +1051,29 @@ function commitSelectionName(selectionId, value) {
   selection.name = value.trim();
 }
 
+function getVisibleSelectionFunctionKeys(selection, context) {
+  const automaticKeys = getAutomaticMetadataFunctionKeys(context);
+
+  return [...new Set([...automaticKeys, ...selection.metadataFunctionKeys])]
+    .filter((functionKey) => !selection.hiddenMetadataFunctionKeys.includes(functionKey))
+    .sort((left, right) => humanizeFunctionKey(left).localeCompare(humanizeFunctionKey(right)));
+}
+
+function isSelectionFunctionVisible(selection, functionKey, context) {
+  return getVisibleSelectionFunctionKeys(selection, context).includes(functionKey);
+}
+
+function buildSelectionFunctionSelectOptions() {
+  const options = SORTED_SELECTION_METADATA_FUNCTIONS.map((definition) => {
+    return `<option value="${definition.key}">${escapeHtml(humanizeFunctionKey(definition.key))}</option>`;
+  }).join("");
+
+  return `
+    <option value="">Select Date Info</option>
+    ${options}
+  `;
+}
+
 function buildSelectionMetadata(selection) {
   const context = deriveSelectionContext(selection);
 
@@ -1038,10 +1081,7 @@ function buildSelectionMetadata(selection) {
     return "";
   }
 
-  const automaticKeys = getAutomaticMetadataFunctionKeys(context);
-  const visibleFunctionKeys = [...new Set([...automaticKeys, ...selection.metadataFunctionKeys])]
-    .filter((functionKey) => !selection.hiddenMetadataFunctionKeys.includes(functionKey))
-    .sort((left, right) => humanizeFunctionKey(left).localeCompare(humanizeFunctionKey(right)));
+  const visibleFunctionKeys = getVisibleSelectionFunctionKeys(selection, context);
   const metadataLines = [];
 
   for (const functionKey of visibleFunctionKeys) {
@@ -1071,20 +1111,17 @@ function buildSelectionMetadata(selection) {
   }
 
   return `
-    <div style="border-top: 1px solid rgba(0, 0, 0, 0.2); margin-top: 6px; padding-top: 6px;">
+    <div data-selection-metadata="${selection.id}" style="border-top: 1px solid rgba(0, 0, 0, 0.2); margin-top: 6px; padding-top: 6px;">
       <table width="100%" cellpadding="3" cellspacing="0" border="0">
         <tbody>
           ${metadataLines.join("")}
           <tr>
-            <td colspan="3" style="padding-top: 8px; border-top: 1px solid rgba(0, 0, 0, 0.2); text-align: center;">
-              <input
-                type="text"
-                list="selection-function-options"
-                data-selection-function-input="${selection.id}"
-                value="${escapeHtml(selection.metadataDraft || "")}"
-                placeholder="Select Date Info"
-                aria-label="Select Date Info for ${selection.label}"
-              />
+            <td colspan="3" style="padding-top: 8px;">
+              <div style="padding-top: 8px; border-top: 1px solid rgba(0, 0, 0, 0.2); text-align: center;">
+                <select data-selection-function-select="${selection.id}" aria-label="Select Date Info for ${selection.label}">
+                  ${buildSelectionFunctionSelectOptions()}
+                </select>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -1146,14 +1183,6 @@ function buildSelectionContent(selection) {
         : ""}
     </table>
   `;
-}
-
-function buildSelectionFunctionOptions() {
-  const options = SORTED_SELECTION_METADATA_FUNCTIONS.map((definition) => {
-    return `<option value="${humanizeFunctionKey(definition.key)}"></option>`;
-  }).join("");
-
-  return `<datalist id="selection-function-options">${options}</datalist>`;
 }
 
 function buildSelectionPanel(monthsPerRow) {
@@ -1492,7 +1521,7 @@ function updateLiveMetadataValues() {
 }
 
 function render() {
-  app.innerHTML = `${buildYearTable(displayYear)}${buildSelectionFunctionOptions()}`;
+  app.innerHTML = buildYearTable(displayYear);
   updateLiveMetadataValues();
   saveSessionState();
 
@@ -1614,10 +1643,11 @@ app.addEventListener("click", (event) => {
   const selectionEditorTarget = target.closest("[data-selection-editor]");
   const selectionNameTarget = target.closest("[data-selection-name]");
   const selectionNameLinkTarget = target.closest("[data-selection-name-link]");
-  const selectionFunctionInputTarget = target.closest("[data-selection-function-input]");
+  const selectionFunctionSelectTarget = target.closest("[data-selection-function-select]");
   const selectionFunctionArgTarget = target.closest("[data-selection-function-arg]");
   const selectionFunctionCopyTarget = target.closest("[data-selection-function-copy]");
   const selectionFunctionRemoveTarget = target.closest("[data-selection-function-remove]");
+  const selectionMetadataTarget = target.closest("[data-selection-metadata]");
 
   if (selectionTarget instanceof HTMLAnchorElement) {
     event.preventDefault();
@@ -1631,7 +1661,7 @@ app.addEventListener("click", (event) => {
     return;
   }
 
-  if (selectionFunctionInputTarget instanceof HTMLInputElement) {
+  if (selectionFunctionSelectTarget instanceof HTMLSelectElement) {
     return;
   }
 
@@ -1671,6 +1701,10 @@ app.addEventListener("click", (event) => {
     activeSelectionId = selectionId;
     removeMetadataFunctionFromSelection(selectionId, functionKey);
     render();
+    return;
+  }
+
+  if (selectionMetadataTarget instanceof HTMLElement) {
     return;
   }
 
@@ -1813,8 +1847,45 @@ app.addEventListener("click", (event) => {
   }
 });
 
-app.addEventListener("keydown", (event) => {
+window.addEventListener("keydown", (event) => {
   const target = event.target;
+  const isTypingTarget = target instanceof HTMLInputElement
+    || target instanceof HTMLSelectElement
+    || target instanceof HTMLTextAreaElement
+    || (target instanceof HTMLElement && target.isContentEditable);
+
+  if (!isTypingTarget && !event.metaKey && !event.ctrlKey && !event.altKey) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      displayYear -= 1;
+      isEditingYear = false;
+      shouldFocusSelectionEditor = false;
+      shouldFocusSelectionNameEditor = false;
+      render();
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      displayYear += 1;
+      isEditingYear = false;
+      shouldFocusSelectionEditor = false;
+      shouldFocusSelectionNameEditor = false;
+      render();
+      return;
+    }
+
+    if (event.key === "/") {
+      event.preventDefault();
+      isEditingYear = true;
+      editingSelectionId = null;
+      editingNameSelectionId = null;
+      shouldFocusSelectionEditor = false;
+      shouldFocusSelectionNameEditor = false;
+      render();
+      return;
+    }
+  }
 
   if (target instanceof HTMLInputElement && target.dataset.yearEditor === "true") {
     if (event.key === "Escape") {
@@ -1857,29 +1928,6 @@ app.addEventListener("keydown", (event) => {
 
     commitSelectionName(Number(target.dataset.selectionName), target.value);
     render();
-    return;
-  }
-
-  if (target instanceof HTMLInputElement && target.dataset.selectionFunctionInput !== undefined) {
-    if (event.key === "Escape") {
-      const selection = selections[Number(target.dataset.selectionFunctionInput)];
-
-      if (selection) {
-        selection.metadataDraft = "";
-      }
-
-      render();
-      return;
-    }
-
-    if (event.key !== "Enter") {
-      return;
-    }
-
-    if (addMetadataFunctionToSelection(Number(target.dataset.selectionFunctionInput), target.value)) {
-      render();
-    }
-
     return;
   }
 
@@ -1964,23 +2012,20 @@ app.addEventListener("input", (event) => {
     selection.name = target.value;
     return;
   }
-
-  if (target.dataset.selectionFunctionInput === undefined) {
-    return;
-  }
-
-  const selectionId = Number(target.dataset.selectionFunctionInput);
-  const selection = selections[selectionId];
-
-  if (!selection) {
-    return;
-  }
-
-  selection.metadataDraft = target.value;
 });
 
 app.addEventListener("change", (event) => {
   const target = event.target;
+
+  if (target instanceof HTMLSelectElement && target.dataset.selectionFunctionSelect !== undefined) {
+    const selectionId = Number(target.dataset.selectionFunctionSelect);
+
+    if (target.value && addMetadataFunctionToSelection(selectionId, target.value)) {
+      render();
+    }
+
+    return;
+  }
 
   if (target instanceof HTMLSelectElement && target.dataset.selectionFunctionArg !== undefined) {
     const selectionId = Number(target.dataset.selectionFunctionArg);
@@ -1994,14 +2039,6 @@ app.addEventListener("change", (event) => {
     updateSelectionFunctionArg(selectionId, functionKey, argKey, target.value);
     render();
     return;
-  }
-
-  if (!(target instanceof HTMLInputElement) || target.dataset.selectionFunctionInput === undefined) {
-    return;
-  }
-
-  if (addMetadataFunctionToSelection(Number(target.dataset.selectionFunctionInput), target.value)) {
-    render();
   }
 });
 
