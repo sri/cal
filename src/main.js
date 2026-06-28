@@ -22,6 +22,7 @@ const MONTH_NAMES = [
 const MONTHS_PER_ROW = 3;
 const DAY_NAMES = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const WEEKS_PER_MONTH = 6;
+const MONTH_DAY_BUTTON_SIZE = 28;
 const MONOSPACE_FONT_STACK = "Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
 const MS_PER_SECOND = 1000;
 const MS_PER_MINUTE = 60 * MS_PER_SECOND;
@@ -1750,12 +1751,13 @@ function buildMonthTable(year, monthIndex) {
   const weeks = buildMonthWeeks(year, monthIndex);
   const headerCells = DAY_NAMES.map((dayName) => `<th scope="col">${dayName}</th>`).join("");
   const isCurrentMonth = year === CURRENT_YEAR && monthIndex === CURRENT_MONTH;
+  const emptyCellStyle = `height: ${MONTH_DAY_BUTTON_SIZE}px; width: ${100 / DAY_NAMES.length}%;`;
   const weekRows = weeks
     .map((week) => {
       const cells = week
         .map((day) => {
           if (day === "") {
-            return "<td></td>";
+            return `<td align="right" style="${emptyCellStyle}">&nbsp;</td>`;
           }
 
           const isoDate = toIsoDate(year, monthIndex, Number(day));
@@ -1765,7 +1767,9 @@ function buildMonthTable(year, monthIndex) {
             "border: 1px solid transparent;",
             "background: transparent;",
             "padding: 2px 4px;",
-            "cursor: pointer;"
+            "cursor: pointer;",
+            `min-width: ${MONTH_DAY_BUTTON_SIZE}px;`,
+            `height: ${MONTH_DAY_BUTTON_SIZE}px;`
           ];
 
           if (selection) {
