@@ -56,6 +56,18 @@ const ANNIVERSARY_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric"
 });
+const LIGHT_SELECTION_COLORS = [
+  { color: "#dbeafe", border: "#2563eb", text: "#111827" },
+  { color: "#dcfce7", border: "#16a34a", text: "#111827" },
+  { color: "#fef3c7", border: "#d97706", text: "#111827" },
+  { color: "#fce7f3", border: "#db2777", text: "#111827" },
+  { color: "#e9d5ff", border: "#7c3aed", text: "#111827" },
+  { color: "#cffafe", border: "#0891b2", text: "#111827" },
+  { color: "#d1fae5", border: "#059669", text: "#111827" },
+  { color: "#fee2e2", border: "#dc2626", text: "#111827" },
+  { color: "#fef08a", border: "#ca8a04", text: "#111827" },
+  { color: "#dbe4ff", border: "#4338ca", text: "#111827" }
+];
 const PASTEL_SELECTION_COLORS = [
   { color: "#c7f9cc", border: "#2f855a", text: "#102418" },
   { color: "#bfdbfe", border: "#2563eb", text: "#102139" },
@@ -68,8 +80,50 @@ const PASTEL_SELECTION_COLORS = [
   { color: "#fde68a", border: "#ca8a04", text: "#35290b" },
   { color: "#e9d5ff", border: "#6d28d9", text: "#23103c" }
 ];
-const DEFAULT_THEME_KEY = "dark";
+const DEFAULT_THEME_KEY = "light";
 const THEMES = {
+  light: {
+    label: "Light",
+    colorScheme: "light",
+    pageBackground: "Canvas",
+    surface: "transparent",
+    frameBorder: "transparent",
+    frameShadow: "none",
+    frameBackdropFilter: "none",
+    shellRadius: "0",
+    textColor: "CanvasText",
+    mutedText: "CanvasText",
+    linkColor: "LinkText",
+    linkHoverColor: "LinkText",
+    linkDecoration: "underline",
+    headerText: "LinkText",
+    borderColor: "#000000",
+    subtleBorder: "rgba(0, 0, 0, 0.2)",
+    controlBackground: "ButtonFace",
+    controlText: "ButtonText",
+    controlBorder: "ButtonBorder",
+    controlRadius: "2px",
+    accentBorder: "#2563eb",
+    focusRing: "#2563eb",
+    monthBackground: "transparent",
+    monthRadius: "0",
+    panelShadow: "none",
+    currentMonthSurface: "#fff9c4",
+    currentMonthShadow: "inset 0 0 0 1px #000000",
+    todayBackground: "#fff9c4",
+    todayBorder: "#000000",
+    todayText: "#111827",
+    hoverBackground: "#f3f3f3",
+    selectionCardBorder: "rgba(0, 0, 0, 0.14)",
+    selectionCardRadius: "0",
+    metadataBorder: "rgba(0, 0, 0, 0.2)",
+    settingsSurface: "Canvas",
+    settingsShadow: "none",
+    settingsOptionHover: "#f3f3f3",
+    settingsOptionActive: "#e5e7eb",
+    settingsBorderRadius: "0",
+    selectionColors: LIGHT_SELECTION_COLORS
+  },
   dark: {
     label: "Dark",
     colorScheme: "dark",
@@ -80,15 +134,19 @@ const THEMES = {
     textColor: "#e2e8f0",
     mutedText: "#94a3b8",
     linkColor: "#cbd5e1",
+    linkHoverColor: "#cbd5e1",
+    linkDecoration: "none",
     headerText: "#f8fafc",
     borderColor: "#475569",
     subtleBorder: "rgba(148, 163, 184, 0.28)",
     controlBackground: "rgba(15, 23, 42, 0.78)",
     controlText: "#f8fafc",
     controlBorder: "#64748b",
+    controlRadius: "8px",
     accentBorder: "#a5b4fc",
     focusRing: "#c4b5fd",
     monthBackground: "rgba(15, 23, 42, 0.68)",
+    monthRadius: "18px",
     panelShadow: "0 10px 28px rgba(15, 23, 42, 0.32)",
     currentMonthSurface: "rgba(30, 41, 59, 0.92)",
     currentMonthShadow: "inset 0 0 0 1px rgba(196, 181, 253, 0.7), 0 10px 28px rgba(15, 23, 42, 0.32)",
@@ -96,10 +154,14 @@ const THEMES = {
     todayBorder: "#cbd5f5",
     todayText: "#0f172a",
     hoverBackground: "rgba(148, 163, 184, 0.2)",
+    selectionCardBorder: "rgba(15, 23, 42, 0.14)",
+    selectionCardRadius: "16px",
+    metadataBorder: "rgba(15, 23, 42, 0.14)",
     settingsSurface: "rgba(15, 23, 42, 0.97)",
     settingsShadow: "0 24px 48px rgba(2, 6, 23, 0.52)",
     settingsOptionHover: "rgba(148, 163, 184, 0.16)",
     settingsOptionActive: "rgba(165, 180, 252, 0.18)",
+    settingsBorderRadius: "16px",
     selectionColors: PASTEL_SELECTION_COLORS
   },
   matrix: {
@@ -112,15 +174,19 @@ const THEMES = {
     textColor: "#b7f7c9",
     mutedText: "#7bd990",
     linkColor: "#d9ffd7",
+    linkHoverColor: "#d9ffd7",
+    linkDecoration: "none",
     headerText: "#ecffeb",
     borderColor: "#2a6a45",
     subtleBorder: "rgba(123, 217, 144, 0.28)",
     controlBackground: "rgba(7, 27, 16, 0.9)",
     controlText: "#eaffea",
     controlBorder: "#35a15a",
+    controlRadius: "8px",
     accentBorder: "#86efac",
     focusRing: "#bbf7d0",
     monthBackground: "rgba(8, 23, 14, 0.72)",
+    monthRadius: "18px",
     panelShadow: "0 10px 28px rgba(0, 0, 0, 0.35)",
     currentMonthSurface: "rgba(12, 34, 20, 0.94)",
     currentMonthShadow: "inset 0 0 0 1px rgba(134, 239, 172, 0.72), 0 10px 28px rgba(0, 0, 0, 0.35)",
@@ -128,10 +194,14 @@ const THEMES = {
     todayBorder: "#86efac",
     todayText: "#052e16",
     hoverBackground: "rgba(134, 239, 172, 0.18)",
+    selectionCardBorder: "rgba(15, 23, 42, 0.14)",
+    selectionCardRadius: "16px",
+    metadataBorder: "rgba(15, 23, 42, 0.14)",
     settingsSurface: "rgba(3, 12, 7, 0.97)",
     settingsShadow: "0 24px 48px rgba(0, 0, 0, 0.6)",
     settingsOptionHover: "rgba(134, 239, 172, 0.14)",
     settingsOptionActive: "rgba(134, 239, 172, 0.2)",
+    settingsBorderRadius: "16px",
     selectionColors: PASTEL_SELECTION_COLORS
   },
   brown: {
@@ -144,15 +214,19 @@ const THEMES = {
     textColor: "#4b2e1f",
     mutedText: "#7c5b42",
     linkColor: "#5b3927",
+    linkHoverColor: "#5b3927",
+    linkDecoration: "none",
     headerText: "#3f2618",
     borderColor: "#a77a57",
     subtleBorder: "rgba(122, 91, 66, 0.28)",
     controlBackground: "rgba(255, 249, 241, 0.86)",
     controlText: "#4b2e1f",
     controlBorder: "#b08968",
+    controlRadius: "8px",
     accentBorder: "#d97706",
     focusRing: "#f59e0b",
     monthBackground: "rgba(255, 248, 239, 0.74)",
+    monthRadius: "18px",
     panelShadow: "0 10px 28px rgba(122, 91, 66, 0.18)",
     currentMonthSurface: "rgba(255, 245, 230, 0.96)",
     currentMonthShadow: "inset 0 0 0 1px rgba(217, 119, 6, 0.42), 0 10px 28px rgba(122, 91, 66, 0.18)",
@@ -160,10 +234,14 @@ const THEMES = {
     todayBorder: "#f59e0b",
     todayText: "#78350f",
     hoverBackground: "rgba(176, 137, 104, 0.18)",
+    selectionCardBorder: "rgba(15, 23, 42, 0.14)",
+    selectionCardRadius: "16px",
+    metadataBorder: "rgba(15, 23, 42, 0.14)",
     settingsSurface: "rgba(255, 247, 236, 0.98)",
     settingsShadow: "0 24px 48px rgba(92, 58, 34, 0.2)",
     settingsOptionHover: "rgba(176, 137, 104, 0.12)",
     settingsOptionActive: "rgba(217, 119, 6, 0.14)",
+    settingsBorderRadius: "16px",
     selectionColors: PASTEL_SELECTION_COLORS
   }
 };
@@ -1136,11 +1214,12 @@ function buildThemeStyles() {
 
       #app a {
         color: ${theme.linkColor};
-        text-decoration: none;
+        text-decoration: ${theme.linkDecoration};
       }
 
       #app a:hover {
-        text-decoration: underline;
+        color: ${theme.linkHoverColor};
+        text-decoration: ${theme.linkDecoration};
       }
 
       #app button,
@@ -1150,7 +1229,7 @@ function buildThemeStyles() {
         color: ${theme.controlText};
         background: ${theme.controlBackground};
         border: 1px solid ${theme.controlBorder};
-        border-radius: 8px;
+        border-radius: ${theme.controlRadius};
         padding: 4px 8px;
       }
 
@@ -1175,10 +1254,10 @@ function buildThemeStyles() {
         margin: 0 auto;
         padding: 18px;
         border: 1px solid ${theme.frameBorder};
-        border-radius: 24px;
+        border-radius: ${theme.shellRadius};
         background: ${theme.surface};
         box-shadow: ${theme.frameShadow};
-        backdrop-filter: blur(14px);
+        backdrop-filter: ${theme.frameBackdropFilter ?? "blur(14px)"};
       }
 
       #app [data-header-date-link] {
@@ -1188,7 +1267,7 @@ function buildThemeStyles() {
       #app [data-month-table] {
         width: 100%;
         border: 1px solid ${theme.borderColor};
-        border-radius: 18px;
+        border-radius: ${theme.monthRadius};
         background: ${theme.monthBackground};
         box-shadow: ${theme.panelShadow};
       }
@@ -1199,16 +1278,16 @@ function buildThemeStyles() {
       }
 
       #app [data-selection-card] {
-        border: 1px solid rgba(15, 23, 42, 0.14);
-        border-radius: 16px;
+        border: 1px solid ${theme.selectionCardBorder};
+        border-radius: ${theme.selectionCardRadius};
       }
 
       #app [data-selection-metadata] {
-        border-top: 1px solid rgba(15, 23, 42, 0.14);
+        border-top: 1px solid ${theme.metadataBorder};
       }
 
       #app [data-selection-function-picker] {
-        border-top: 1px solid rgba(15, 23, 42, 0.14);
+        border-top: 1px solid ${theme.metadataBorder};
       }
 
       #app [data-settings-anchor] {
@@ -1222,7 +1301,7 @@ function buildThemeStyles() {
         width: min(260px, 80vw);
         padding: 12px;
         border: 1px solid ${theme.borderColor};
-        border-radius: 16px;
+        border-radius: ${theme.settingsBorderRadius};
         background: ${theme.settingsSurface};
         box-shadow: ${theme.settingsShadow};
         z-index: 20;
@@ -2405,6 +2484,7 @@ app.addEventListener("change", (event) => {
     }
 
     activeThemeKey = nextThemeKey;
+    settingsOpen = false;
     syncSelectionColors();
     rebuildAvailableColorIndices();
     render();
